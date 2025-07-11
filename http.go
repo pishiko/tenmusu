@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"net"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 type URL struct {
 	scheme string
 	host   string
+	port   int
 	path   string
 }
 
@@ -30,6 +32,12 @@ func NewURL(url string) *URL {
 		return nil // Invalid URL format
 	}
 	ret.scheme = parts[0]
+	switch ret.scheme {
+	case "http":
+		ret.port = 80
+	case "https":
+		ret.port = 443
+	}
 	part := parts[1]
 
 	if strings.Contains(part, "/") {
@@ -40,16 +48,32 @@ func NewURL(url string) *URL {
 		ret.host = part
 		ret.path = ""
 	}
+	if strings.Contains(ret.host, ":") {
+		parts = strings.SplitN(ret.host, ":", 2)
+		ret.host = parts[0]
+		ret.port, _ = strconv.Atoi(parts[1])
+	}
 
 	return ret
 }
 
 func (u *URL) request() *Response {
-	conn, err := net.Dial("tcp", u.host+":80")
+	conn, err := net.Dial("tcp", u.host+":"+strconv.Itoa(u.port))
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
+
+	if u.scheme == "https" {
+		tlsConn := tls.Client(conn, &tls.Config{
+			ServerName: u.host,
+		})
+		if err := tlsConn.Handshake(); err != nil {
+			panic(err)
+		}
+		defer tlsConn.Close()
+		conn = tlsConn
+	}
 
 	request := "GET " + u.path + " HTTP/1.1\r\n"
 	request += "Host: " + u.host + "\r\n"
@@ -109,7 +133,7 @@ func readLine(reader *bufio.Reader) (string, error) {
 }
 
 func main() {
-	url := NewURL("http://example.org/")
+	url := NewURL("https://example.org/")
 	if url != nil {
 		response := url.request()
 		println("\nStatus line:")
