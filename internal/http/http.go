@@ -1,5 +1,4 @@
-// package tenmusu
-package main
+package http
 
 import (
 	"bufio"
@@ -10,18 +9,18 @@ import (
 )
 
 type URL struct {
-	scheme string
-	host   string
-	port   int
-	path   string
+	Scheme string
+	Host   string
+	Port   int
+	Path   string
 }
 
 type Response struct {
-	status      string
-	version     string
-	explanation string
-	headers     map[string]string
-	body        string
+	Status      string
+	Version     string
+	Explanation string
+	Headers     map[string]string
+	Body        string
 }
 
 func NewURL(url string) *URL {
@@ -31,42 +30,42 @@ func NewURL(url string) *URL {
 	if len(parts) != 2 {
 		return nil // Invalid URL format
 	}
-	ret.scheme = parts[0]
-	switch ret.scheme {
+	ret.Scheme = parts[0]
+	switch ret.Scheme {
 	case "http":
-		ret.port = 80
+		ret.Port = 80
 	case "https":
-		ret.port = 443
+		ret.Port = 443
 	}
 	part := parts[1]
 
 	if strings.Contains(part, "/") {
 		parts = strings.SplitN(part, "/", 2)
-		ret.host = parts[0]
-		ret.path = "/" + parts[1]
+		ret.Host = parts[0]
+		ret.Path = "/" + parts[1]
 	} else {
-		ret.host = part
-		ret.path = ""
+		ret.Host = part
+		ret.Path = ""
 	}
-	if strings.Contains(ret.host, ":") {
-		parts = strings.SplitN(ret.host, ":", 2)
-		ret.host = parts[0]
-		ret.port, _ = strconv.Atoi(parts[1])
+	if strings.Contains(ret.Host, ":") {
+		parts = strings.SplitN(ret.Host, ":", 2)
+		ret.Host = parts[0]
+		ret.Port, _ = strconv.Atoi(parts[1])
 	}
 
 	return ret
 }
 
-func (u *URL) request() *Response {
-	conn, err := net.Dial("tcp", u.host+":"+strconv.Itoa(u.port))
+func (u *URL) Request() *Response {
+	conn, err := net.Dial("tcp", u.Host+":"+strconv.Itoa(u.Port))
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	if u.scheme == "https" {
+	if u.Scheme == "https" {
 		tlsConn := tls.Client(conn, &tls.Config{
-			ServerName: u.host,
+			ServerName: u.Host,
 		})
 		if err := tlsConn.Handshake(); err != nil {
 			panic(err)
@@ -75,8 +74,8 @@ func (u *URL) request() *Response {
 		conn = tlsConn
 	}
 
-	request := "GET " + u.path + " HTTP/1.1\r\n"
-	request += "Host: " + u.host + "\r\n"
+	request := "GET " + u.Path + " HTTP/1.1\r\n"
+	request += "Host: " + u.Host + "\r\n"
 	request += "\r\n"
 	conn.Write([]byte(request))
 
@@ -116,11 +115,11 @@ func (u *URL) request() *Response {
 	content := string(buf)
 
 	return &Response{
-		status:      status,
-		version:     version,
-		explanation: explanation,
-		headers:     responseHeaders,
-		body:        content,
+		Status:      status,
+		Version:     version,
+		Explanation: explanation,
+		Headers:     responseHeaders,
+		Body:        content,
 	}
 }
 
@@ -130,21 +129,4 @@ func readLine(reader *bufio.Reader) (string, error) {
 		return "", err
 	}
 	return strings.TrimRight(line, "\r\n"), nil
-}
-
-func main() {
-	url := NewURL("https://example.org/")
-	if url != nil {
-		response := url.request()
-		println("\nStatus line:")
-		println(response.version + " " + response.status + " " + response.explanation)
-		println("\nResponse headers:")
-		for key, value := range response.headers {
-			println(key + ": " + value)
-		}
-		println("\nResponse body:")
-		println(response.body)
-	} else {
-		println("Invalid URL")
-	}
 }
