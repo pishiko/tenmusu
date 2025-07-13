@@ -25,6 +25,7 @@ func Layout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSou
 	//style
 	weight := "normal"
 	style := "roman"
+	size := 16.0
 
 	for _, token := range tokens {
 		switch token.Type {
@@ -38,6 +39,14 @@ func Layout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSou
 				weight = "bold"
 			case "/b":
 				weight = "normal"
+			case "big":
+				size += 4.0
+			case "/big":
+				size -= 4.0
+			case "small":
+				size -= 2.0
+			case "/small":
+				size += 2.0
 			}
 		case html.Text:
 			for _, word := range strings.Split(token.Value, " ") {
@@ -47,7 +56,7 @@ func Layout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSou
 				f := &text.GoTextFace{
 					Source:    fontSource,
 					Direction: text.DirectionLeftToRight,
-					Size:      16,
+					Size:      size,
 					Language:  language.Japanese,
 				}
 				w, h := text.Measure(word, f, f.Metrics().HLineGap)
