@@ -57,6 +57,10 @@ func NewURL(url string) *URL {
 }
 
 func (u *URL) Request() *Response {
+	if u.Scheme == "file" {
+		return u.openFile()
+	}
+
 	conn, err := net.Dial("tcp", u.Host+":"+strconv.Itoa(u.Port))
 	if err != nil {
 		panic(err)
