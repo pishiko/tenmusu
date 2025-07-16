@@ -56,9 +56,17 @@ func (l *Layout) Drawables() []Drawable {
 				l.style = "italic"
 			case "/i":
 				l.style = "roman"
+			case "em":
+				l.style = "italic"
+			case "/em":
+				l.style = "roman"
 			case "b":
 				l.weight = "bold"
 			case "/b":
+				l.weight = "normal"
+			case "strong":
+				l.weight = "bold"
+			case "/strong":
 				l.weight = "normal"
 			case "big":
 				l.size += 4.0
