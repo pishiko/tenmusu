@@ -20,7 +20,7 @@ type Drawable struct {
 type Layout struct {
 	tokens     []html.Token
 	scrollY    float64
-	fontSource *text.GoTextFaceSource
+	fontSource FontSource
 	screenRect image.Rectangle
 
 	xCursor    float64
@@ -32,7 +32,7 @@ type Layout struct {
 	_drawables []Drawable
 }
 
-func NewLayout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSource, screenRect image.Rectangle) *Layout {
+func NewLayout(tokens []html.Token, scrollY float64, fontSource FontSource, screenRect image.Rectangle) *Layout {
 	return &Layout{
 		tokens:     tokens,
 		fontSource: fontSource,
@@ -79,8 +79,12 @@ func (l *Layout) Drawables() []Drawable {
 				if word == "" {
 					continue // Skip empty words
 				}
+				source := l.fontSource.normal
+				if l.weight == "bold" {
+					source = l.fontSource.bold
+				}
 				f := &text.GoTextFace{
-					Source:    l.fontSource,
+					Source:    source,
 					Direction: text.DirectionLeftToRight,
 					Size:      l.size,
 					Language:  language.Japanese,
