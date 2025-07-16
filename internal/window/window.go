@@ -80,11 +80,11 @@ func loadFontFaceSource(path string, index int) *text.GoTextFaceSource {
 	if index < 0 || index >= len(fonts) {
 		panic(fmt.Sprintf("Invalid font index: %d", index))
 	}
-	for i, src := range fonts {
-		md := src.Metadata()
-		fmt.Printf("Index=%d, Family=%q, Style=%v, Weight=%v\n",
-			i, md.Family, md.Style, md.Weight)
-	}
+	// for i, src := range fonts {
+	// 	md := src.Metadata()
+	// 	fmt.Printf("Index=%d, Family=%q, Style=%v, Weight=%v\n",
+	// 		i, md.Family, md.Style, md.Weight)
+	// }
 	return fonts[index]
 }
 
