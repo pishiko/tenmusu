@@ -9,44 +9,70 @@ import (
 	"golang.org/x/text/language"
 )
 
-type Display struct {
-	op   *text.DrawOptions
-	word string
-	font *text.GoTextFace
+type Drawable struct {
+	word   string
+	font   *text.GoTextFace
+	x, y   float64
+	style  string
+	weight string
 }
 
-func Layout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSource, screenRect image.Rectangle) []Display {
-	displays := []Display{}
+type Layout struct {
+	tokens     []html.Token
+	scrollY    float64
+	fontSource *text.GoTextFaceSource
+	screenRect image.Rectangle
 
-	// pos
-	y := 0 + scrollY
-	x := 0
+	xCursor    float64
+	yCursor    float64
+	weight     string
+	style      string
+	size       float64
+	line       []Drawable
+	_drawables []Drawable
+}
 
-	//style
-	weight := "normal"
-	style := "roman"
-	size := 16.0
+func NewLayout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSource, screenRect image.Rectangle) *Layout {
+	return &Layout{
+		tokens:     tokens,
+		fontSource: fontSource,
+		screenRect: screenRect,
+		xCursor:    0.0,
+		yCursor:    0.0 + scrollY,
+		weight:     "normal",
+		style:      "roman",
+		size:       16.0,
+		line:       []Drawable{},
+		_drawables: []Drawable{},
+	}
+}
 
-	for _, token := range tokens {
+func (l *Layout) Drawables() []Drawable {
+	for _, token := range l.tokens {
 		switch token.Type {
 		case html.Tag:
 			switch token.Value {
 			case "i":
-				style = "italic"
+				l.style = "italic"
 			case "/i":
-				style = "roman"
+				l.style = "roman"
 			case "b":
-				weight = "bold"
+				l.weight = "bold"
 			case "/b":
-				weight = "normal"
+				l.weight = "normal"
 			case "big":
-				size += 4.0
+				l.size += 4.0
 			case "/big":
-				size -= 4.0
+				l.size -= 4.0
 			case "small":
-				size -= 2.0
+				l.size -= 2.0
 			case "/small":
-				size += 2.0
+				l.size += 2.0
+			case "br":
+				l.flush()
+			case "/p":
+				l.flush()
+				l.yCursor += 16.0 // Add some space for paragraph
 			}
 		case html.Text:
 			for _, word := range strings.Split(token.Value, " ") {
@@ -54,56 +80,82 @@ func Layout(tokens []html.Token, scrollY float64, fontSource *text.GoTextFaceSou
 					continue // Skip empty words
 				}
 				f := &text.GoTextFace{
-					Source:    fontSource,
+					Source:    l.fontSource,
 					Direction: text.DirectionLeftToRight,
-					Size:      size,
+					Size:      l.size,
 					Language:  language.Japanese,
 				}
 				w, h := text.Measure(word, f, f.Metrics().HLineGap)
 
 				// 右端まで言ったら改行
-				if x+int(w) > screenRect.Dx() {
-					x = 0
-					y += h //todo fix
+				if l.xCursor+w > float64(l.screenRect.Dx()) {
+					l.flush()
 				}
 				// y < 0 はスキップ
-				if y+h < 0 {
-					x += int(w)
+				if l.yCursor+h < 0 {
+					l.xCursor += w
 					spaceWidth, _ := text.Measure(" ", f, f.Metrics().HLineGap)
-					x += int(spaceWidth)
+					l.xCursor += spaceWidth
 					continue
 				}
 
 				// y > 画面下以降は終了
-				if y > float64(screenRect.Dy()) {
+				if l.yCursor > float64(l.screenRect.Dy()) {
 					break
 				}
 
-				// Draw the character
-				op := &text.DrawOptions{}
-
-				if style == "italic" {
-					// todo italic
-					op.GeoM.Skew(-0.5, 0)
-				}
-				if weight == "bold" {
-					// todo bold
-				}
-				op.GeoM.Translate(float64(x), float64(y))
-
-				displays = append(displays, Display{
-					op:   op,
-					word: word,
-					font: f,
+				l.line = append(l.line, Drawable{
+					word:   word,
+					font:   f,
+					x:      l.xCursor,
+					y:      l.yCursor,
+					style:  l.style,
+					weight: l.weight,
 				})
 
 				// Update x position for the next character
-				x += int(w)
+				l.xCursor += w
 				spaceWidth, _ := text.Measure(" ", f, f.Metrics().HLineGap)
-				x += int(spaceWidth)
+				l.xCursor += spaceWidth
 			}
 		}
 
 	}
-	return displays
+	return l._drawables
+}
+
+func (l *Layout) flush() {
+	maxAscent := 0.0
+	maxDescent := 0.0
+	maxGap := 0.0
+	for _, d := range l.line {
+		metrics := d.font.Metrics()
+
+		if metrics.HAscent > maxAscent {
+			maxAscent = metrics.HAscent
+		}
+		if metrics.HDescent > maxDescent {
+			maxDescent = metrics.HDescent
+		}
+		if metrics.HLineGap > maxGap {
+			maxGap = metrics.HLineGap
+		}
+	}
+	for _, d := range l.line {
+		baseline := l.yCursor + maxAscent
+		y := baseline - d.font.Metrics().HAscent
+		l._drawables = append(l._drawables,
+			Drawable{
+				word:   d.word,
+				font:   d.font,
+				x:      d.x,
+				y:      y,
+				style:  d.style,
+				weight: d.weight,
+			},
+		)
+	}
+	l.yCursor += (maxAscent + maxDescent) + maxGap
+	l.line = []Drawable{}
+	l.xCursor = 0
 }

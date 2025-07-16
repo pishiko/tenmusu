@@ -36,9 +36,20 @@ func (b *Window) Update() error {
 func (b *Window) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	displays := Layout(b.tokens, float64(b.scrollY), b.fontSource, screen.Bounds())
-	for _, display := range displays {
-		text.Draw(screen, display.word, display.font, display.op)
+	layout := NewLayout(b.tokens, float64(b.scrollY), b.fontSource, screen.Bounds())
+	drawables := layout.Drawables()
+	for _, drawable := range drawables {
+		// Draw the character
+		op := &text.DrawOptions{}
+
+		if drawable.style == "italic" {
+			// todo italic
+		}
+		if drawable.weight == "bold" {
+			// todo bold
+		}
+		op.GeoM.Translate(drawable.x, drawable.y)
+		text.Draw(screen, drawable.word, drawable.font, op)
 	}
 
 }
