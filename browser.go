@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/pishiko/tenmusu/internal/html"
 	"github.com/pishiko/tenmusu/internal/http"
 	"github.com/pishiko/tenmusu/internal/window"
@@ -27,11 +29,17 @@ func (b *Browser) Load(url string) {
 		println(key + ": " + value)
 	}
 
-	tokens := html.Lex(response.Body)
+	tokens := html.Parse(response.Body)
 	window.Open(tokens)
 }
 
 func main() {
 	browser := NewBrowser()
-	browser.Load("https://example.org/")
+	// 第一引数をURLとして受け取る
+	if len(os.Args) < 2 {
+		println("Usage: tenmusu <url>")
+		return
+	}
+	url := os.Args[1]
+	browser.Load(url)
 }
