@@ -1,26 +1,12 @@
 package main
 
 import (
+	"github.com/pishiko/tenmusu/internal/html"
 	"github.com/pishiko/tenmusu/internal/http"
 	"github.com/pishiko/tenmusu/internal/window"
 )
 
 type Browser struct {
-}
-
-func lex(body string) string {
-	isInTag := false
-	text := ""
-	for _, char := range body {
-		if char == '<' {
-			isInTag = true
-		} else if char == '>' {
-			isInTag = false
-		} else if !isInTag {
-			text += string(char)
-		}
-	}
-	return text
 }
 
 func NewBrowser() *Browser {
@@ -41,8 +27,8 @@ func (b *Browser) Load(url string) {
 		println(key + ": " + value)
 	}
 
-	content := lex(response.Body)
-	window.Open(content)
+	tokens := html.Lex(response.Body)
+	window.Open(tokens)
 }
 
 func main() {
