@@ -15,6 +15,7 @@ type Drawable struct {
 	x, y   float64
 	style  string
 	weight string
+	w, h   float64
 }
 
 type Layout struct {
@@ -103,18 +104,6 @@ func (l *Layout) Drawables() []Drawable {
 				if l.xCursor+w > float64(l.screenRect.Dx()) {
 					l.flush()
 				}
-				// y < 0 はスキップ
-				if l.yCursor+h < 0 {
-					l.xCursor += w
-					spaceWidth, _ := text.Measure(" ", f, f.Metrics().HLineGap)
-					l.xCursor += spaceWidth
-					continue
-				}
-
-				// y > 画面下以降は終了
-				if l.yCursor > float64(l.screenRect.Dy()) {
-					break
-				}
 
 				l.line = append(l.line, Drawable{
 					word:   word,
@@ -123,6 +112,8 @@ func (l *Layout) Drawables() []Drawable {
 					y:      l.yCursor,
 					style:  l.style,
 					weight: l.weight,
+					w:      w,
+					h:      h,
 				})
 
 				// Update x position for the next character
@@ -164,6 +155,8 @@ func (l *Layout) flush() {
 				y:      y,
 				style:  d.style,
 				weight: d.weight,
+				w:      d.w,
+				h:      d.h,
 			},
 		)
 	}

@@ -29,10 +29,10 @@ func (b *Window) Update() error {
 		return ebiten.Termination
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyUp) {
-		b.scrollY += 10
+		b.scrollY += 1
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		b.scrollY -= 10
+		b.scrollY -= 1
 	}
 	return nil
 }
@@ -43,6 +43,11 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	layout := NewLayout(b.tokens, float64(b.scrollY), b.fontSource, screen.Bounds())
 	drawables := layout.Drawables()
 	for _, drawable := range drawables {
+
+		if drawable.y+drawable.h < 0 || drawable.y > float64(screen.Bounds().Dy()) {
+			continue
+		}
+
 		// Draw the character
 		op := &text.DrawOptions{}
 		color := ebiten.ColorScale{}
