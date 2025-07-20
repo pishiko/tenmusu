@@ -3,8 +3,9 @@ package html
 type TokenType int
 
 type Token struct {
-	Type  TokenType
-	Value string
+	Type     TokenType
+	Value    string
+	Children []Token
 }
 
 const (
@@ -12,11 +13,24 @@ const (
 	Tag
 )
 
-func Lex(body string) []Token {
+type Parser struct {
+	body       string
+	unfinished []Token
+}
+
+func Parse(body string) []Token {
+	parser := &Parser{
+		body:       body,
+		unfinished: []Token{},
+	}
+	return parser.tokens()
+}
+
+func (p *Parser) tokens() []Token {
 	isInTag := false
 	buf := ""
 	tokens := []Token{}
-	for _, char := range body {
+	for _, char := range p.body {
 		switch char {
 		case '<':
 			isInTag = true
