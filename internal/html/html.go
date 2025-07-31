@@ -69,7 +69,7 @@ func (p *Parser) addElement(text string) {
 	if text == "" {
 		return
 	}
-	name := strings.Split(text, " ")[0] // TODO FIX
+	name := strings.Split(strings.ReplaceAll(text, "\n", " "), " ")[0] // TODO FIX
 
 	if name[0] == '/' {
 		name = name[1:]
