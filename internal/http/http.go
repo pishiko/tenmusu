@@ -115,7 +115,15 @@ func (u *URL) Request() *Response {
 	}
 	buf := make([]byte, size)
 
-	_, err = reader.Read(buf)
+	for offset := 0; size > offset; {
+		n, err := reader.Read(buf[offset:])
+		if err != nil {
+			println("Error reading response body:", err.Error())
+			return nil
+		}
+		offset += n
+	}
+
 	content := string(buf)
 
 	return &Response{
