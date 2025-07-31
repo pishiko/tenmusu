@@ -30,6 +30,7 @@ func (b *Browser) Load(url string) {
 	}
 
 	tokens := html.Parse(response.Body)
+	printDebug(tokens, 0)
 	window.Open(tokens)
 }
 
@@ -42,4 +43,23 @@ func main() {
 	}
 	url := os.Args[1]
 	browser.Load(url)
+}
+
+func printDebug(tokens []html.Token, indent int) {
+	for _, token := range tokens {
+		for i := 0; i < indent; i++ {
+			print("  ")
+		}
+		switch token.Type {
+		case html.Text:
+			println(token.Value)
+		case html.Element:
+			println("<" + token.Value + ">")
+			printDebug(token.Children, indent+1)
+			for i := 0; i < indent; i++ {
+				print("  ")
+			}
+			println("</" + token.Value + ">")
+		}
+	}
 }

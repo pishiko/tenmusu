@@ -51,7 +51,7 @@ func NewLayout(tokens []html.Token, scrollY float64, fontSource FontSource, scre
 func (l *Layout) Drawables() []Drawable {
 	for _, token := range l.tokens {
 		switch token.Type {
-		case html.Tag:
+		case html.Element:
 			switch token.Value {
 			case "i":
 				l.style = "italic"
