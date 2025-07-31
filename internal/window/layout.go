@@ -50,81 +50,101 @@ func NewLayout(tokens []html.Token, scrollY float64, fontSource FontSource, scre
 
 func (l *Layout) Drawables() []Drawable {
 	for _, token := range l.tokens {
-		switch token.Type {
-		case html.Element:
-			switch token.Value {
-			case "i":
-				l.style = "italic"
-			case "/i":
-				l.style = "roman"
-			case "em":
-				l.style = "italic"
-			case "/em":
-				l.style = "roman"
-			case "b":
-				l.weight = "bold"
-			case "/b":
-				l.weight = "normal"
-			case "strong":
-				l.weight = "bold"
-			case "/strong":
-				l.weight = "normal"
-			case "big":
-				l.size += 4.0
-			case "/big":
-				l.size -= 4.0
-			case "small":
-				l.size -= 2.0
-			case "/small":
-				l.size += 2.0
-			case "br":
-				l.flush()
-			case "/p":
-				l.flush()
-				l.yCursor += 16.0 // Add some space for paragraph
-			}
-		case html.Text:
-			for _, word := range strings.Split(token.Value, " ") {
-				if word == "" {
-					continue // Skip empty words
-				}
-				source := l.fontSource.normal
-				if l.weight == "bold" {
-					source = l.fontSource.bold
-				}
-				f := &text.GoTextFace{
-					Source:    source,
-					Direction: text.DirectionLeftToRight,
-					Size:      l.size,
-					Language:  language.Japanese,
-				}
-				w, h := text.Measure(word, f, f.Metrics().HLineGap)
-
-				// 右端まで言ったら改行
-				if l.xCursor+w > float64(l.screenRect.Dx()) {
-					l.flush()
-				}
-
-				l.line = append(l.line, Drawable{
-					word:   word,
-					font:   f,
-					x:      l.xCursor,
-					y:      l.yCursor,
-					style:  l.style,
-					weight: l.weight,
-					w:      w,
-					h:      h,
-				})
-
-				// Update x position for the next character
-				l.xCursor += w
-				spaceWidth, _ := text.Measure(" ", f, f.Metrics().HLineGap)
-				l.xCursor += spaceWidth
-			}
-		}
-
+		l.recurse(token)
 	}
 	return l._drawables
+}
+
+func (l *Layout) recurse(token html.Token) {
+	switch token.Type {
+	case html.Element:
+		l.openTag(token.Value)
+		for _, child := range token.Children {
+			l.recurse(child)
+		}
+		l.closeTag(token.Value)
+	case html.Text:
+		l.text(token)
+	}
+}
+
+func (l *Layout) openTag(tag string) {
+	switch tag {
+	case "i":
+		l.style = "italic"
+	case "em":
+		l.style = "italic"
+	case "b":
+		l.weight = "bold"
+	case "strong":
+		l.weight = "bold"
+	case "big":
+		l.size += 4.0
+	case "small":
+		l.size -= 2.0
+	case "br":
+		l.flush()
+	}
+}
+
+func (l *Layout) closeTag(tag string) {
+	switch tag {
+	case "i":
+		l.style = "roman"
+	case "em":
+		l.style = "roman"
+	case "b":
+		l.weight = "normal"
+	case "strong":
+		l.weight = "normal"
+	case "big":
+		l.size -= 4.0
+	case "small":
+		l.size += 2.0
+	case "p":
+		l.flush()
+		l.yCursor += 16.0 // Add some space for paragraph
+	}
+}
+
+func (l *Layout) text(token html.Token) {
+	for _, word := range strings.Split(token.Value, " ") {
+		if word == "" {
+			continue // Skip empty words
+		}
+		source := l.fontSource.normal
+		if l.weight == "bold" {
+			source = l.fontSource.bold
+		}
+		f := &text.GoTextFace{
+			Source:    source,
+			Direction: text.DirectionLeftToRight,
+			Size:      l.size,
+			Language:  language.Japanese,
+		}
+		w, h := text.Measure(word, f, f.Metrics().HLineGap)
+
+		// 右端まで言ったら改行
+		if l.xCursor+w > float64(l.screenRect.Dx()) {
+			l.flush()
+		}
+
+		l.line = append(l.line, Drawable{
+			word:   word,
+			font:   f,
+			x:      l.xCursor,
+			y:      l.yCursor,
+			style:  l.style,
+			weight: l.weight,
+			w:      w,
+			h:      h,
+		})
+
+		// Update x position for the next character
+		l.xCursor += w
+		spaceWidth, _ := text.Measure(" ", f, f.Metrics().HLineGap)
+		l.xCursor += spaceWidth
+	}
 }
 
 func (l *Layout) flush() {
