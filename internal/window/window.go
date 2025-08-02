@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image/color"
 	"math"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -13,15 +12,9 @@ import (
 	"github.com/pishiko/tenmusu/internal/html"
 )
 
-type FontSource struct {
-	normal *text.GoTextFaceSource
-	bold   *text.GoTextFaceSource
-}
-
 type Window struct {
-	fontSource FontSource
-	node       html.Node
-	scrollY    int
+	node    html.Node
+	scrollY int
 }
 
 func (b *Window) Update() error {
@@ -40,7 +33,7 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	screen.Fill(color.White)
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	layout := NewLayout(b.node, float64(b.scrollY), b.fontSource, screen.Bounds())
+	layout := NewDocumentLayout(b.node, float64(b.scrollY), screen.Bounds())
 	layout.layout()
 	for _, drawable := range layout.drawables {
 
@@ -71,38 +64,8 @@ func (b *Window) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
 
-func loadFontFaceSource(path string, index int) *text.GoTextFaceSource {
-	f, err := os.Open(path)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to read font file: %v", err))
-	}
-	defer f.Close()
-
-	fonts, err := text.NewGoTextFaceSourcesFromCollection(f)
-	if err != nil {
-		panic(err)
-	}
-	if index < 0 || index >= len(fonts) {
-		panic(fmt.Sprintf("Invalid font index: %d", index))
-	}
-	// for i, src := range fonts {
-	// 	md := src.Metadata()
-	// 	fmt.Printf("Index=%d, Family=%q, Style=%v, Weight=%v\n",
-	// 		i, md.Family, md.Style, md.Weight)
-	// }
-	return fonts[index]
-}
-
 func NewWindow(node html.Node) *Window {
-
-	normal := loadFontFaceSource("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 2)
-	bold := loadFontFaceSource("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 2)
-
 	return &Window{
-		fontSource: FontSource{
-			normal: normal,
-			bold:   bold,
-		},
 		node:    node,
 		scrollY: 0,
 	}
