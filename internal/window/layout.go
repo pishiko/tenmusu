@@ -20,7 +20,7 @@ type Drawable struct {
 }
 
 type Layout struct {
-	tokens     []html.Token
+	nodes      []html.Node
 	scrollY    float64
 	fontSource FontSource
 	screenRect image.Rectangle
@@ -34,9 +34,9 @@ type Layout struct {
 	_drawables []Drawable
 }
 
-func NewLayout(tokens []html.Token, scrollY float64, fontSource FontSource, screenRect image.Rectangle) *Layout {
+func NewLayout(nodes []html.Node, scrollY float64, fontSource FontSource, screenRect image.Rectangle) *Layout {
 	return &Layout{
-		tokens:     tokens,
+		nodes:      nodes,
 		fontSource: fontSource,
 		screenRect: screenRect,
 		xCursor:    0.0,
@@ -50,22 +50,22 @@ func NewLayout(tokens []html.Token, scrollY float64, fontSource FontSource, scre
 }
 
 func (l *Layout) Drawables() []Drawable {
-	for _, token := range l.tokens {
-		l.recurse(token)
+	for _, node := range l.nodes {
+		l.recurse(node)
 	}
 	return l._drawables
 }
 
-func (l *Layout) recurse(token html.Token) {
-	switch token.Type {
+func (l *Layout) recurse(node html.Node) {
+	switch node.Type {
 	case html.Element:
-		l.openTag(token.Value)
-		for _, child := range token.Children {
+		l.openTag(node.Value)
+		for _, child := range node.Children {
 			l.recurse(child)
 		}
-		l.closeTag(token.Value)
+		l.closeTag(node.Value)
 	case html.Text:
-		l.text(token)
+		l.text(node)
 	}
 }
 
@@ -108,8 +108,8 @@ func (l *Layout) closeTag(tag string) {
 	}
 }
 
-func (l *Layout) text(token html.Token) {
-	for _, word := range strings.FieldsFunc(token.Value, unicode.IsSpace) {
+func (l *Layout) text(node html.Node) {
+	for _, word := range strings.FieldsFunc(node.Value, unicode.IsSpace) {
 		if word == "" {
 			continue // Skip empty words
 		}

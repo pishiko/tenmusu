@@ -6,36 +6,36 @@ import (
 	"github.com/pishiko/tenmusu/internal/util"
 )
 
-type TokenType int
+type NodeType int
 
-type Token struct {
-	Type     TokenType
+type Node struct {
+	Type     NodeType
 	Value    string
-	Children []Token
-	Parent   *Token
+	Children []Node
+	Parent   *Node
 }
 
 const (
-	Text TokenType = iota
+	Text NodeType = iota
 	Element
 )
 
 type Parser struct {
 	body       string
-	unfinished util.Stack[Token]
-	tokens     []Token
+	unfinished util.Stack[Node]
+	nodes      []Node
 }
 
-func Parse(body string) []Token {
+func Parse(body string) []Node {
 	parser := &Parser{
 		body:       body,
-		unfinished: util.Stack[Token]{},
-		tokens:     []Token{},
+		unfinished: util.Stack[Node]{},
+		nodes:      []Node{},
 	}
 	return parser.parse()
 }
 
-func (p *Parser) parse() []Token {
+func (p *Parser) parse() []Node {
 	isInTag := false
 	buf := ""
 	for _, char := range p.body {
@@ -60,9 +60,9 @@ func (p *Parser) parse() []Token {
 
 	// finish
 	for node, ok := p.unfinished.Pop(); ok; node, ok = p.unfinished.Pop() {
-		p.tokens = append(p.tokens, node)
+		p.nodes = append(p.nodes, node)
 	}
-	return p.tokens
+	return p.nodes
 }
 
 func (p *Parser) addElement(text string) {
@@ -80,7 +80,7 @@ func (p *Parser) addElement(text string) {
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, node)
 			} else {
-				p.tokens = append(p.tokens, node)
+				p.nodes = append(p.nodes, node)
 			}
 		} else {
 			panic("Unmatched closing tag: " + name)
@@ -91,17 +91,17 @@ func (p *Parser) addElement(text string) {
 		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
-				parent.Children = append(parent.Children, Token{Type: Element, Value: name, Parent: parent})
+				parent.Children = append(parent.Children, Node{Type: Element, Value: name, Parent: parent})
 			} else {
-				p.tokens = append(p.tokens, Token{Type: Element, Value: name})
+				p.nodes = append(p.nodes, Node{Type: Element, Value: name})
 			}
 			return
 		}
 		if parent := p.unfinished.Peek(); parent != nil {
-			node := Token{Type: Element, Value: name, Parent: parent}
+			node := Node{Type: Element, Value: name, Parent: parent}
 			p.unfinished.Push(node)
 		} else {
-			node := Token{Type: Element, Value: name}
+			node := Node{Type: Element, Value: name}
 			p.unfinished.Push(node)
 		}
 	}
@@ -113,9 +113,9 @@ func (p *Parser) addText(text string) {
 		return
 	}
 	if parent := p.unfinished.Peek(); parent != nil {
-		parent.Children = append(parent.Children, Token{Type: Text, Value: text, Parent: parent})
+		parent.Children = append(parent.Children, Node{Type: Text, Value: text, Parent: parent})
 	} else {
-		p.tokens = append(p.tokens, Token{Type: Text, Value: text})
+		p.nodes = append(p.nodes, Node{Type: Text, Value: text})
 	}
 }
 
