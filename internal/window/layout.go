@@ -20,23 +20,23 @@ type Drawable struct {
 }
 
 type Layout struct {
-	nodes      []html.Node
+	node       html.Node
 	scrollY    float64
 	fontSource FontSource
 	screenRect image.Rectangle
 
-	xCursor    float64
-	yCursor    float64
-	weight     string
-	style      string
-	size       float64
-	line       []Drawable
-	_drawables []Drawable
+	xCursor   float64
+	yCursor   float64
+	weight    string
+	style     string
+	size      float64
+	line      []Drawable
+	drawables []Drawable
 }
 
-func NewLayout(nodes []html.Node, scrollY float64, fontSource FontSource, screenRect image.Rectangle) *Layout {
+func NewLayout(node html.Node, scrollY float64, fontSource FontSource, screenRect image.Rectangle) *Layout {
 	return &Layout{
-		nodes:      nodes,
+		node:       node,
 		fontSource: fontSource,
 		screenRect: screenRect,
 		xCursor:    0.0,
@@ -45,15 +45,12 @@ func NewLayout(nodes []html.Node, scrollY float64, fontSource FontSource, screen
 		style:      "roman",
 		size:       16.0,
 		line:       []Drawable{},
-		_drawables: []Drawable{},
+		drawables:  []Drawable{},
 	}
 }
 
-func (l *Layout) Drawables() []Drawable {
-	for _, node := range l.nodes {
-		l.recurse(node)
-	}
-	return l._drawables
+func (l *Layout) layout() {
+	l.recurse(l.node)
 }
 
 func (l *Layout) recurse(node html.Node) {
@@ -168,7 +165,7 @@ func (l *Layout) flush() {
 	for _, d := range l.line {
 		baseline := l.yCursor + maxAscent
 		y := baseline - d.font.Metrics().HAscent
-		l._drawables = append(l._drawables,
+		l.drawables = append(l.drawables,
 			Drawable{
 				word:   d.word,
 				font:   d.font,

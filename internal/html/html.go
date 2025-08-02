@@ -23,19 +23,19 @@ const (
 type Parser struct {
 	body       string
 	unfinished util.Stack[Node]
-	nodes      []Node
+	node       Node
 }
 
-func Parse(body string) []Node {
+func Parse(body string) Node {
 	parser := &Parser{
 		body:       body,
 		unfinished: util.Stack[Node]{},
-		nodes:      []Node{},
 	}
-	return parser.parse()
+	parser.parse()
+	return parser.node
 }
 
-func (p *Parser) parse() []Node {
+func (p *Parser) parse() {
 	isInTag := false
 	buf := ""
 	for _, char := range p.body {
@@ -60,9 +60,8 @@ func (p *Parser) parse() []Node {
 
 	// finish
 	for node, ok := p.unfinished.Pop(); ok; node, ok = p.unfinished.Pop() {
-		p.nodes = append(p.nodes, node)
+		p.node = node
 	}
-	return p.nodes
 }
 
 func (p *Parser) addElement(text string) {
@@ -80,7 +79,7 @@ func (p *Parser) addElement(text string) {
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, node)
 			} else {
-				p.nodes = append(p.nodes, node)
+				p.node = node
 			}
 		} else {
 			panic("Unmatched closing tag: " + name)
@@ -93,7 +92,7 @@ func (p *Parser) addElement(text string) {
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, Node{Type: Element, Value: name, Parent: parent})
 			} else {
-				p.nodes = append(p.nodes, Node{Type: Element, Value: name})
+				p.node = Node{Type: Element, Value: name}
 			}
 			return
 		}
@@ -115,7 +114,7 @@ func (p *Parser) addText(text string) {
 	if parent := p.unfinished.Peek(); parent != nil {
 		parent.Children = append(parent.Children, Node{Type: Text, Value: text, Parent: parent})
 	} else {
-		p.nodes = append(p.nodes, Node{Type: Text, Value: text})
+		p.node = Node{Type: Text, Value: text}
 	}
 }
 

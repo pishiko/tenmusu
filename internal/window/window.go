@@ -20,7 +20,7 @@ type FontSource struct {
 
 type Window struct {
 	fontSource FontSource
-	nodes      []html.Node
+	node       html.Node
 	scrollY    int
 }
 
@@ -40,9 +40,9 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	screen.Fill(color.White)
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	layout := NewLayout(b.nodes, float64(b.scrollY), b.fontSource, screen.Bounds())
-	drawables := layout.Drawables()
-	for _, drawable := range drawables {
+	layout := NewLayout(b.node, float64(b.scrollY), b.fontSource, screen.Bounds())
+	layout.layout()
+	for _, drawable := range layout.drawables {
 
 		if drawable.y+drawable.h < 0 || drawable.y > float64(screen.Bounds().Dy()) {
 			continue
@@ -93,7 +93,7 @@ func loadFontFaceSource(path string, index int) *text.GoTextFaceSource {
 	return fonts[index]
 }
 
-func NewWindow(nodes []html.Node) *Window {
+func NewWindow(node html.Node) *Window {
 
 	normal := loadFontFaceSource("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 2)
 	bold := loadFontFaceSource("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 2)
@@ -103,15 +103,15 @@ func NewWindow(nodes []html.Node) *Window {
 			normal: normal,
 			bold:   bold,
 		},
-		nodes:   nodes,
+		node:    node,
 		scrollY: 0,
 	}
 }
 
-func Open(nodes []html.Node) {
+func Open(node html.Node) {
 	ebiten.SetWindowSize(800, 600)
 	ebiten.SetWindowTitle("tenmusu")
-	if err := ebiten.RunGame(NewWindow(nodes)); err != nil {
+	if err := ebiten.RunGame(NewWindow(node)); err != nil {
 		panic(err)
 	}
 	println("Exiting...")
