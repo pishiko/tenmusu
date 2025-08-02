@@ -3,6 +3,7 @@ package window
 import (
 	"image"
 	"strings"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/pishiko/tenmusu/internal/html"
@@ -108,7 +109,7 @@ func (l *Layout) closeTag(tag string) {
 }
 
 func (l *Layout) text(token html.Token) {
-	for _, word := range strings.Split(token.Value, " ") {
+	for _, word := range strings.FieldsFunc(token.Value, unicode.IsSpace) {
 		if word == "" {
 			continue // Skip empty words
 		}
