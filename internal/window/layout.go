@@ -17,15 +17,6 @@ const (
 	Inline
 )
 
-type Drawable struct {
-	word   string
-	font   *text.GoTextFace
-	x, y   float64
-	style  string
-	weight string
-	w, h   float64
-}
-
 type DocumentLayout struct {
 	node       html.Node
 	scrollY    float64
@@ -87,8 +78,8 @@ type BlockLayout struct {
 	weight    string
 	style     string
 	size      float64
-	line      []Drawable
-	drawables []Drawable
+	line      []TextDrawable
+	drawables []TextDrawable
 }
 
 func NewBlockLayout(node *html.Node, parent *BlockLayout, previous *BlockLayout) *BlockLayout {
@@ -101,7 +92,11 @@ func NewBlockLayout(node *html.Node, parent *BlockLayout, previous *BlockLayout)
 }
 
 func (l *BlockLayout) paint() []Drawable {
-	return l.drawables
+	ret := []Drawable{}
+	for _, d := range l.drawables {
+		ret = append(ret, &d)
+	}
+	return ret
 }
 
 func (l *BlockLayout) layout() {
@@ -127,7 +122,7 @@ func (l *BlockLayout) layout() {
 		l.weight = "normal"
 		l.style = "roman"
 		l.size = 16.0
-		l.line = []Drawable{}
+		l.line = []TextDrawable{}
 		l.recurse(*l.node)
 		l.flush()
 	}
@@ -244,7 +239,7 @@ func (l *BlockLayout) text(node html.Node) {
 			l.flush()
 		}
 
-		l.line = append(l.line, Drawable{
+		l.line = append(l.line, TextDrawable{
 			word:   word,
 			font:   f,
 			x:      l.cursorX,
@@ -283,7 +278,7 @@ func (l *BlockLayout) flush() {
 		baseline := l.cursorY + maxAscent
 		y := baseline - d.font.Metrics().HAscent
 		l.drawables = append(l.drawables,
-			Drawable{
+			TextDrawable{
 				word:   d.word,
 				font:   d.font,
 				x:      l.x + d.x,
@@ -296,6 +291,6 @@ func (l *BlockLayout) flush() {
 		)
 	}
 	l.cursorY += (maxAscent + maxDescent) + maxGap
-	l.line = []Drawable{}
+	l.line = []TextDrawable{}
 	l.cursorX = 0
 }
