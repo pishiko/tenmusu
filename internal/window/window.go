@@ -29,10 +29,10 @@ func (b *Window) Update() error {
 		return ebiten.Termination
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyUp) {
-		b.scrollY += 1
+		b.scrollY += 5
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		b.scrollY -= 1
+		b.scrollY -= 5
 	}
 	return nil
 }
