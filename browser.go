@@ -29,9 +29,9 @@ func (b *Browser) Load(url string) {
 		println(key + ": " + value)
 	}
 
-	tokens := html.Parse(response.Body)
-	printDebug(tokens, 0)
-	window.Open(tokens)
+	node := html.Parse(response.Body)
+	printDebug(node, 0)
+	window.Open(node)
 }
 
 func main() {
@@ -45,21 +45,21 @@ func main() {
 	browser.Load(url)
 }
 
-func printDebug(tokens []html.Token, indent int) {
-	for _, token := range tokens {
+func printDebug(node html.Node, indent int) {
+	for i := 0; i < indent; i++ {
+		print("  ")
+	}
+	switch node.Type {
+	case html.Text:
+		println(node.Value)
+	case html.Element:
+		println("<" + node.Value + ">")
+		for _, node := range node.Children {
+			printDebug(node, indent+1)
+		}
 		for i := 0; i < indent; i++ {
 			print("  ")
 		}
-		switch token.Type {
-		case html.Text:
-			println(token.Value)
-		case html.Element:
-			println("<" + token.Value + ">")
-			printDebug(token.Children, indent+1)
-			for i := 0; i < indent; i++ {
-				print("  ")
-			}
-			println("</" + token.Value + ">")
-		}
+		println("</" + node.Value + ">")
 	}
 }
