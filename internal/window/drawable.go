@@ -9,7 +9,7 @@ import (
 )
 
 type Drawable interface {
-	Draw(screen *ebiten.Image)
+	Draw(screen *ebiten.Image, scrollY float64)
 }
 
 type TextDrawable struct {
@@ -21,7 +21,8 @@ type TextDrawable struct {
 	w, h   float64
 }
 
-func (d *TextDrawable) Draw(screen *ebiten.Image) {
+func (d *TextDrawable) Draw(screen *ebiten.Image, scrollY float64) {
+	d.y += scrollY
 	if d.y+d.h < 0 || d.y > float64(screen.Bounds().Dy()) {
 		return
 	}
@@ -49,7 +50,9 @@ type RectDrawable struct {
 	color                    color.Color
 }
 
-func (d *RectDrawable) Draw(screen *ebiten.Image) {
+func (d *RectDrawable) Draw(screen *ebiten.Image, scrollY float64) {
+	d.top += scrollY
+	d.bottom += scrollY
 	if d.top > float64(screen.Bounds().Dy()) || d.bottom < 0 ||
 		d.left > float64(screen.Bounds().Dx()) || d.right < 0 {
 		return

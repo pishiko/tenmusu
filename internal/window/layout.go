@@ -2,6 +2,7 @@ package window
 
 import (
 	"image"
+	"image/color"
 	"strings"
 	"unicode"
 
@@ -19,16 +20,14 @@ const (
 
 type DocumentLayout struct {
 	node       html.Node
-	scrollY    float64
 	screenRect image.Rectangle
 	children   []*BlockLayout
 	drawables  []Drawable
 }
 
-func NewDocumentLayout(node html.Node, scrollY float64, screenRect image.Rectangle) *DocumentLayout {
+func NewDocumentLayout(node html.Node, screenRect image.Rectangle) *DocumentLayout {
 	return &DocumentLayout{
 		node:       node,
-		scrollY:    scrollY,
 		screenRect: screenRect,
 		drawables:  []Drawable{},
 	}
@@ -40,7 +39,7 @@ func (l *DocumentLayout) layout() {
 		parent:   nil,
 		previous: nil,
 		x:        8.0,
-		y:        8.0 + l.scrollY,
+		y:        8.0,
 		width:    float64(l.screenRect.Dx()) - 16.0,
 		height:   float64(l.screenRect.Dy()) - 16.0,
 	}
@@ -93,8 +92,21 @@ func NewBlockLayout(node *html.Node, parent *BlockLayout, previous *BlockLayout)
 
 func (l *BlockLayout) paint() []Drawable {
 	ret := []Drawable{}
-	for _, d := range l.drawables {
-		ret = append(ret, &d)
+	if l.node.Type == html.Element && l.node.Value == "pre" {
+		x2, y2 := l.x+l.width, l.y+l.height
+		ret = append(ret, &RectDrawable{
+			top:    l.y,
+			left:   l.x,
+			bottom: y2,
+			right:  x2,
+			color:  color.RGBA{R: 240, G: 240, B: 240, A: 255},
+		})
+	}
+
+	if l.layoutMode() == Inline {
+		for _, d := range l.drawables {
+			ret = append(ret, &d)
+		}
 	}
 	return ret
 }

@@ -31,10 +31,10 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	screen.Fill(color.White)
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	layout := NewDocumentLayout(b.node, float64(b.scrollY), screen.Bounds())
+	layout := NewDocumentLayout(b.node, screen.Bounds())
 	layout.layout()
 	for _, drawable := range layout.drawables {
-		drawable.Draw(screen)
+		drawable.Draw(screen, float64(b.scrollY))
 	}
 
 }
