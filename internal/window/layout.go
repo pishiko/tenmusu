@@ -6,7 +6,8 @@ import (
 	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/pishiko/tenmusu/internal/html"
+	"github.com/pishiko/tenmusu/internal/parser/css"
+	"github.com/pishiko/tenmusu/internal/parser/model"
 	"golang.org/x/text/language"
 )
 
@@ -18,13 +19,13 @@ const (
 )
 
 type DocumentLayout struct {
-	node       html.Node
+	node       model.Node
 	screenRect image.Rectangle
 	children   []*BlockLayout
 	drawables  []Drawable
 }
 
-func NewDocumentLayout(node html.Node, screenRect image.Rectangle) *DocumentLayout {
+func NewDocumentLayout(node model.Node, screenRect image.Rectangle) *DocumentLayout {
 	return &DocumentLayout{
 		node:       node,
 		screenRect: screenRect,
@@ -61,7 +62,7 @@ func paintTree(layout *BlockLayout, drawables []Drawable) []Drawable {
 }
 
 type BlockLayout struct {
-	node     *html.Node
+	node     *model.Node
 	parent   *BlockLayout
 	previous *BlockLayout
 	children []*BlockLayout
@@ -80,7 +81,7 @@ type BlockLayout struct {
 	drawables []TextDrawable
 }
 
-func NewBlockLayout(node *html.Node, parent *BlockLayout, previous *BlockLayout) *BlockLayout {
+func NewBlockLayout(node *model.Node, parent *BlockLayout, previous *BlockLayout) *BlockLayout {
 	return &BlockLayout{
 		node:     node,
 		parent:   parent,
@@ -103,7 +104,7 @@ func (l *BlockLayout) paint() []Drawable {
 			left:   l.x,
 			bottom: y2,
 			right:  x2,
-			color:  html.RGBA(bgcolor),
+			color:  css.RGBA(bgcolor),
 		})
 	}
 
@@ -161,9 +162,9 @@ func (l *BlockLayout) layout() {
 
 func (l *BlockLayout) layoutMode() LayoutMode {
 	switch l.node.Type {
-	case html.Text:
+	case model.Text:
 		return Inline
-	case html.Element:
+	case model.Element:
 		switch l.node.Value {
 		case "html", "body", "article", "section", "nav", "aside",
 			"h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
@@ -181,16 +182,16 @@ func (l *BlockLayout) layoutMode() LayoutMode {
 	return Block
 }
 
-func (l *BlockLayout) recurse(node html.Node) {
-	switch node.Type {
-	case html.Element:
-		l.openTag(node.Value)
-		for _, child := range node.Children {
+func (l *BlockLayout) recurse(n model.Node) {
+	switch n.Type {
+	case model.Element:
+		l.openTag(n.Value)
+		for _, child := range n.Children {
 			l.recurse(child)
 		}
-		l.closeTag(node.Value)
-	case html.Text:
-		l.text(node)
+		l.closeTag(n.Value)
+	case model.Text:
+		l.text(n)
 	}
 }
 
@@ -233,7 +234,7 @@ func (l *BlockLayout) closeTag(tag string) {
 	}
 }
 
-func (l *BlockLayout) text(node html.Node) {
+func (l *BlockLayout) text(node model.Node) {
 	for _, word := range strings.FieldsFunc(node.Value, unicode.IsSpace) {
 		if word == "" {
 			continue // Skip empty words

@@ -3,58 +3,20 @@ package html
 import (
 	"strings"
 
+	"github.com/pishiko/tenmusu/internal/parser/model"
 	"github.com/pishiko/tenmusu/internal/util"
 )
 
-type NodeType int
-
-const (
-	Text NodeType = iota
-	Element
-)
-
-type Node struct {
-	Type     NodeType
-	Value    string
-	Children []Node
-	Parent   *Node
-	Attrs    map[string]string
-	Style    map[string]string
-}
-
-func (n *Node) ApplyStyle(rules []CSSRule) {
-	if n.Style == nil {
-		n.Style = make(map[string]string)
-	}
-	// sheet
-	for _, rule := range rules {
-		if !rule.Selector.Matches(n) {
-			continue
-		}
-		for property, value := range rule.Body {
-			n.Style[property] = value
-		}
-	}
-	// inline
-	if styleText, ok := n.Attrs["style"]; ok {
-		n.Style = InlineCSSParse(styleText)
-	}
-	// children
-	for i := range n.Children {
-		n.Children[i].ApplyStyle(rules)
-	}
-}
-
 type Parser struct {
 	body       string
-	unfinished util.Stack[Node]
-	node       Node
+	unfinished util.Stack[model.Node]
+	node       model.Node
 }
 
-func Parse(body string) Node {
+func Parse(body string) model.Node {
 	parser := &Parser{
 		body:       body,
-		unfinished: util.Stack[Node]{},
+		unfinished: util.Stack[model.Node]{},
 	}
 	parser.parse()
 	return parser.node
@@ -130,17 +92,17 @@ func (p *Parser) addElement(text string) {
 		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
-				parent.Children = append(parent.Children, Node{Type: Element, Value: name, Parent: parent, Attrs: attrs})
+				parent.Children = append(parent.Children, model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs})
 			} else {
-				p.node = Node{Type: Element, Value: name, Attrs: attrs}
+				p.node = model.Node{Type: model.Element, Value: name, Attrs: attrs}
 			}
 			return
 		}
 		if parent := p.unfinished.Peek(); parent != nil {
-			node := Node{Type: Element, Value: name, Parent: parent, Attrs: attrs}
+			node := model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs}
 			p.unfinished.Push(node)
 		} else {
-			node := Node{Type: Element, Value: name, Parent: nil, Attrs: attrs}
+			node := model.Node{Type: model.Element, Value: name, Parent: nil, Attrs: attrs}
 			p.unfinished.Push(node)
 		}
 	}
@@ -152,9 +114,9 @@ func (p *Parser) addText(text string) {
 		return
 	}
 	if parent := p.unfinished.Peek(); parent != nil {
-		parent.Children = append(parent.Children, Node{Type: Text, Value: text, Parent: parent})
+		parent.Children = append(parent.Children, model.Node{Type: model.Text, Value: text, Parent: parent})
 	} else {
-		p.node = Node{Type: Text, Value: text}
+		p.node = model.Node{Type: model.Text, Value: text}
 	}
 }
 

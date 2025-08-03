@@ -1,9 +1,11 @@
-package html
+package css
 
 import (
 	"errors"
 	"strings"
 	"unicode"
+
+	"github.com/pishiko/tenmusu/internal/parser/model"
 )
 
 type CSSParser struct {
@@ -192,7 +194,7 @@ func contains(s string, r rune) bool {
 }
 
 type Selector interface {
-	Matches(node *Node) bool
+	Matches(node *model.Node) bool
 	Priority() int
 }
 
@@ -200,8 +202,8 @@ type TagSelector struct {
 	tag string
 }
 
-func (ts *TagSelector) Matches(node *Node) bool {
-	return node.Type == Element && node.Value == ts.tag
+func (ts *TagSelector) Matches(n *model.Node) bool {
+	return n.Type == model.Element && n.Value == ts.tag
 }
 
 func (ts *TagSelector) Priority() int {
@@ -213,7 +215,7 @@ type DescendantSelector struct {
 	descendant Selector
 }
 
-func (ds *DescendantSelector) Matches(node *Node) bool {
+func (ds *DescendantSelector) Matches(node *model.Node) bool {
 	if !ds.ancestor.Matches(node) {
 		return false
 	}
@@ -228,4 +230,27 @@ func (ds *DescendantSelector) Matches(node *Node) bool {
 
 func (ds *DescendantSelector) Priority() int {
 	return ds.ancestor.Priority() + ds.descendant.Priority()
+}
+
+func ApplyStyle(n *model.Node, rules []CSSRule) {
+	if n.Style == nil {
+		n.Style = make(map[string]string)
+	}
+	// sheet
+	for _, rule := range rules {
+		if !rule.Selector.Matches(n) {
+			continue
+		}
+		for property, value := range rule.Body {
+			n.Style[property] = value
+		}
+	}
+	// inline
+	if styleText, ok := n.Attrs["style"]; ok {
+		n.Style = InlineCSSParse(styleText)
+	}
+	// children
+	for i := range n.Children {
+		ApplyStyle(&n.Children[i], rules)
+	}
 }

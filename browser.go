@@ -4,8 +4,10 @@ import (
 	"os"
 	"sort"
 
-	"github.com/pishiko/tenmusu/internal/html"
 	"github.com/pishiko/tenmusu/internal/http"
+	"github.com/pishiko/tenmusu/internal/parser/css"
+	"github.com/pishiko/tenmusu/internal/parser/html"
+	"github.com/pishiko/tenmusu/internal/parser/model"
 	"github.com/pishiko/tenmusu/internal/window"
 )
 
@@ -40,7 +42,7 @@ func (b *Browser) Load(url string) {
 		println("Error reading browser.css:", err)
 		return
 	}
-	rules := html.CSSParse(string(cssContent))
+	rules := css.CSSParse(string(cssContent))
 	// cssLinks
 	for _, link := range cssLinks {
 		cssUrl := docUrl.Resolve(link)
@@ -51,13 +53,13 @@ func (b *Browser) Load(url string) {
 			println("Failed to fetch CSS from:", link)
 			continue
 		}
-		rules = append(rules, html.CSSParse(response.Body)...)
+		rules = append(rules, css.CSSParse(response.Body)...)
 	}
 
 	sort.Slice(rules, func(i, j int) bool {
 		return rules[i].Selector.Priority() > rules[j].Selector.Priority()
 	})
-	node.ApplyStyle(rules)
+	css.ApplyStyle(&node, rules)
 
 	// printDebug(node, 0)
 	window.Open(node)
@@ -74,22 +76,22 @@ func main() {
 	browser.Load(url)
 }
 
-func printDebug(node html.Node, indent int) {
+func printDebug(n model.Node, indent int) {
 	for i := 0; i < indent; i++ {
 		print("  ")
 	}
-	switch node.Type {
-	case html.Text:
-		println(node.Value)
-	case html.Element:
-		println("<" + node.Value + ">")
-		for _, node := range node.Children {
+	switch n.Type {
+	case model.Text:
+		println(n.Value)
+	case model.Element:
+		println("<" + n.Value + ">")
+		for _, node := range n.Children {
 			printDebug(node, indent+1)
 		}
 		for i := 0; i < indent; i++ {
 			print("  ")
 		}
-		println("</" + node.Value + ">")
+		println("</" + n.Value + ">")
 	}
 }
 
@@ -97,23 +99,23 @@ type AfterParser struct {
 	cssLinks []string
 }
 
-func (p *AfterParser) recursive(node html.Node) {
-	if node.Type == html.Element && node.Value == "link" {
-		if rel, ok := node.Attrs["rel"]; ok && rel == "stylesheet" {
-			if href, ok := node.Attrs["href"]; ok {
+func (p *AfterParser) recursive(n model.Node) {
+	if n.Type == model.Element && n.Value == "link" {
+		if rel, ok := n.Attrs["rel"]; ok && rel == "stylesheet" {
+			if href, ok := n.Attrs["href"]; ok {
 				p.cssLinks = append(p.cssLinks, href)
 			}
 		}
 	}
-	for _, child := range node.Children {
+	for _, child := range n.Children {
 		p.recursive(child)
 	}
 }
 
-func afterParse(node html.Node) []string {
+func afterParse(n model.Node) []string {
 	p := &AfterParser{
 		cssLinks: []string{},
 	}
-	p.recursive(node)
+	p.recursive(n)
 	return p.cssLinks
 }

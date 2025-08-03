@@ -7,11 +7,11 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/pishiko/tenmusu/internal/html"
+	"github.com/pishiko/tenmusu/internal/parser/model"
 )
 
 type Window struct {
-	node    html.Node
+	node    model.Node
 	scrollY int
 }
 
@@ -42,14 +42,14 @@ func (b *Window) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
 
-func NewWindow(node html.Node) *Window {
+func NewWindow(node model.Node) *Window {
 	return &Window{
 		node:    node,
 		scrollY: 0,
 	}
 }
 
-func Open(node html.Node) {
+func Open(node model.Node) {
 	ebiten.SetWindowSize(800, 600)
 	ebiten.SetWindowTitle("tenmusu")
 	if err := ebiten.RunGame(NewWindow(node)); err != nil {
