@@ -15,13 +15,13 @@ func NewBrowser() *Browser {
 	return &Browser{}
 }
 func (b *Browser) Load(url string) {
-	u := http.NewURL(url)
-	if u == nil {
+	docUrl := http.NewURL(url)
+	if docUrl == nil {
 		println("Invalid URL")
 		return
 	}
 
-	response := u.Request()
+	response := docUrl.Request()
 	println("\nStatus line:")
 	println(response.Version + " " + response.Status + " " + response.Explanation)
 	println("\nResponse headers:")
@@ -30,6 +30,9 @@ func (b *Browser) Load(url string) {
 	}
 
 	node := html.Parse(response.Body)
+
+	// css
+	cssLinks := afterParse(node)
 	// browser.css
 	cssContent, err := os.ReadFile("browser.css")
 	if err != nil {
@@ -37,6 +40,19 @@ func (b *Browser) Load(url string) {
 		return
 	}
 	rules := html.CSSParse(string(cssContent))
+	// cssLinks
+	for _, link := range cssLinks {
+		cssUrl := docUrl.Resolve(link)
+		println("Fetching CSS from:", cssUrl.Scheme+"://"+cssUrl.Host+cssUrl.Path)
+		println("link:", link)
+		response := cssUrl.Request()
+		if response == nil {
+			println("Failed to fetch CSS from:", link)
+			continue
+		}
+		rules = append(rules, html.CSSParse(response.Body)...)
+	}
+
 	node.ApplyStyle(rules)
 
 	// printDebug(node, 0)
@@ -71,4 +87,29 @@ func printDebug(node html.Node, indent int) {
 		}
 		println("</" + node.Value + ">")
 	}
+}
+
+type AfterParser struct {
+	cssLinks []string
+}
+
+func (p *AfterParser) recursive(node html.Node) {
+	if node.Type == html.Element && node.Value == "link" {
+		if rel, ok := node.Attrs["rel"]; ok && rel == "stylesheet" {
+			if href, ok := node.Attrs["href"]; ok {
+				p.cssLinks = append(p.cssLinks, href)
+			}
+		}
+	}
+	for _, child := range node.Children {
+		p.recursive(child)
+	}
+}
+
+func afterParse(node html.Node) []string {
+	p := &AfterParser{
+		cssLinks: []string{},
+	}
+	p.recursive(node)
+	return p.cssLinks
 }

@@ -56,6 +56,29 @@ func NewURL(url string) *URL {
 	return ret
 }
 
+func (u *URL) Resolve(url string) *URL {
+	if strings.Contains(url, "://") {
+		return NewURL(url)
+	}
+	if !strings.HasPrefix(url, "/") {
+		parts := strings.Split(u.Path, "/")
+		dir := strings.Join(parts[:len(parts)-1], "/")
+		for strings.HasPrefix(url, "../") {
+			url = strings.SplitN(url, "/", 2)[1]
+			if strings.Contains(dir, "/") {
+				parts = strings.Split(dir, "/")
+				dir = strings.Join(parts[:len(parts)-1], "/")
+			}
+		}
+		url = dir + "/" + url
+	}
+	if strings.HasPrefix(url, "//") {
+		return NewURL(u.Scheme + ":" + url)
+	} else {
+		return NewURL(u.Scheme + "://" + u.Host + ":" + strconv.Itoa(u.Port) + url)
+	}
+}
+
 func (u *URL) Request() *Response {
 	if u.Scheme == "file" {
 		return u.openFile()
