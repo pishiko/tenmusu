@@ -8,17 +8,42 @@ import (
 
 type NodeType int
 
+const (
+	Text NodeType = iota
+	Element
+)
+
 type Node struct {
 	Type     NodeType
 	Value    string
 	Children []Node
 	Parent   *Node
+	Attrs    map[string]string
+	Style    map[string]string
 }
 
-const (
-	Text NodeType = iota
-	Element
-)
+func (n *Node) ApplyStyle(rules []CSSRule) {
+	if n.Style == nil {
+		n.Style = make(map[string]string)
+	}
+	// sheet
+	for _, rule := range rules {
+		if !rule.Selector.Matches(n) {
+			continue
+		}
+		for property, value := range rule.Body {
+			n.Style[property] = value
+		}
+	}
+	// inline
+	if styleText, ok := n.Attrs["style"]; ok {
+		n.Style = InlineCSSParse(styleText)
+	}
+	// children
+	for i := range n.Children {
+		n.Children[i].ApplyStyle(rules)
+	}
+}
 
 type Parser struct {
 	body       string
@@ -68,7 +93,22 @@ func (p *Parser) addElement(text string) {
 	if text == "" {
 		return
 	}
-	name := strings.Split(strings.ReplaceAll(text, "\n", " "), " ")[0] // TODO FIX
+	parts := strings.Split(strings.ReplaceAll(text, "\n", " "), " ")
+	name := parts[0]
+
+	// attr TODO FIX
+	attrs := make(map[string]string)
+	for _, part := range parts[1:] {
+		if strings.Contains(part, "=") {
+			attrParts := strings.SplitN(part, "=", 2)
+			key := strings.TrimSpace(attrParts[0])
+			value := strings.TrimSpace(attrParts[1])
+			if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
+				value = value[1 : len(value)-1]
+			}
+			attrs[key] = value
+		}
+	}
 
 	if name[0] == '/' {
 		name = name[1:]
@@ -90,17 +130,17 @@ func (p *Parser) addElement(text string) {
 		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
-				parent.Children = append(parent.Children, Node{Type: Element, Value: name, Parent: parent})
+				parent.Children = append(parent.Children, Node{Type: Element, Value: name, Parent: parent, Attrs: attrs})
 			} else {
-				p.node = Node{Type: Element, Value: name}
+				p.node = Node{Type: Element, Value: name, Attrs: attrs}
 			}
 			return
 		}
 		if parent := p.unfinished.Peek(); parent != nil {
-			node := Node{Type: Element, Value: name, Parent: parent}
+			node := Node{Type: Element, Value: name, Parent: parent, Attrs: attrs}
 			p.unfinished.Push(node)
 		} else {
-			node := Node{Type: Element, Value: name}
+			node := Node{Type: Element, Value: name, Parent: nil, Attrs: attrs}
 			p.unfinished.Push(node)
 		}
 	}

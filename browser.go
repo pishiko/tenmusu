@@ -30,7 +30,16 @@ func (b *Browser) Load(url string) {
 	}
 
 	node := html.Parse(response.Body)
-	printDebug(node, 0)
+	// browser.css
+	cssContent, err := os.ReadFile("browser.css")
+	if err != nil {
+		println("Error reading browser.css:", err)
+		return
+	}
+	rules := html.CSSParse(string(cssContent))
+	node.ApplyStyle(rules)
+
+	// printDebug(node, 0)
 	window.Open(node)
 }
 

@@ -2,7 +2,6 @@ package window
 
 import (
 	"image"
-	"image/color"
 	"strings"
 	"unicode"
 
@@ -92,14 +91,19 @@ func NewBlockLayout(node *html.Node, parent *BlockLayout, previous *BlockLayout)
 
 func (l *BlockLayout) paint() []Drawable {
 	ret := []Drawable{}
-	if l.node.Type == html.Element && l.node.Value == "pre" {
+	// bgcolor
+	bgcolor, ok := l.node.Style["background-color"]
+	if !ok {
+		bgcolor = "transparent"
+	}
+	if bgcolor != "transparent" {
 		x2, y2 := l.x+l.width, l.y+l.height
 		ret = append(ret, &RectDrawable{
 			top:    l.y,
 			left:   l.x,
 			bottom: y2,
 			right:  x2,
-			color:  color.RGBA{R: 240, G: 240, B: 240, A: 255},
+			color:  html.RGBA(bgcolor),
 		})
 	}
 
