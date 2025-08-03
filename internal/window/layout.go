@@ -2,6 +2,7 @@ package window
 
 import (
 	"image"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -197,18 +198,10 @@ func (l *BlockLayout) recurse(node model.Node) {
 
 func (l *BlockLayout) openTag(tag string) {
 	switch tag {
-	case "i":
-		l.style = "italic"
 	case "em":
 		l.style = "italic"
-	case "b":
-		l.weight = "bold"
 	case "strong":
 		l.weight = "bold"
-	case "big":
-		l.size += 4.0
-	case "small":
-		l.size -= 2.0
 	case "br":
 		l.flush()
 	}
@@ -216,18 +209,10 @@ func (l *BlockLayout) openTag(tag string) {
 
 func (l *BlockLayout) closeTag(tag string) {
 	switch tag {
-	case "i":
-		l.style = "roman"
 	case "em":
 		l.style = "roman"
-	case "b":
-		l.weight = "normal"
 	case "strong":
 		l.weight = "normal"
-	case "big":
-		l.size -= 4.0
-	case "small":
-		l.size += 2.0
 	case "p":
 		l.flush()
 		l.cursorY += 16.0 // Add some space for paragraph
@@ -235,6 +220,19 @@ func (l *BlockLayout) closeTag(tag string) {
 }
 
 func (l *BlockLayout) text(node model.Node) {
+
+	if weight, ok := node.Style["font-weight"]; ok {
+		l.weight = weight
+	}
+	if style, ok := node.Style["font-style"]; ok {
+		l.style = style
+	}
+	if fs, ok := node.Style["font-size"]; ok {
+		fspx, _ := strings.CutSuffix(fs, "px")
+		fspxInt, _ := strconv.Atoi(fspx)
+		l.size = float64(fspxInt)
+	}
+
 	for _, word := range strings.FieldsFunc(node.Value, unicode.IsSpace) {
 		if word == "" {
 			continue // Skip empty words

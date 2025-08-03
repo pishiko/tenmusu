@@ -60,6 +60,9 @@ func (d *RectDrawable) Draw(screen *ebiten.Image, scrollY float64) {
 
 	width := d.right - d.left
 	height := d.bottom - d.top
+	if width <= 0 || height <= 0 {
+		return
+	}
 	rectImage := ebiten.NewImage(int(width), int(height))
 	rectImage.Fill(d.color)
 	op := &ebiten.DrawImageOptions{}
