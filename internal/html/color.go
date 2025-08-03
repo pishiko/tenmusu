@@ -3,6 +3,7 @@ package html
 import (
 	"fmt"
 	"image/color"
+	"strings"
 )
 
 var NamedColors = map[string]string{
@@ -166,16 +167,24 @@ func RGBA(s string) color.RGBA {
 // Params:
 //   - hex: like "#12abff"
 func HexToRGBA(hex string) color.RGBA {
-	if len(hex) != 7 || hex[0] != '#' {
-		println("[WARNING][CSS PARSER] invalid hex color format")
-		return color.RGBA{255, 255, 255, 0}
-	}
-
 	var r, g, b uint8
-	_, err := fmt.Sscanf(hex[1:], "%02x%02x%02x", &r, &g, &b)
-	if err != nil {
-		println("[WARNING][CSS PARSER] error parsing hex color:", err)
-		return color.RGBA{255, 255, 255, 0}
+	if strings.HasPrefix(hex, "#") {
+		if len(hex) == 4 {
+			_, err := fmt.Sscanf(hex, "#%1x%1x%1x", &r, &g, &b)
+			if err != nil {
+				println("[COLOR] error parsing hex color:", err)
+				return color.RGBA{255, 255, 255, 0}
+			}
+			r = r*17 + r
+			g = g*17 + g
+			b = b*17 + b
+		} else if len(hex) == 7 {
+			_, err := fmt.Sscanf(hex[1:], "%02x%02x%02x", &r, &g, &b)
+			if err != nil {
+				println("[COLOR] error parsing hex color:", err)
+				return color.RGBA{255, 255, 255, 0}
+			}
+		}
 	}
 
 	return color.RGBA{R: r, G: g, B: b, A: 255}

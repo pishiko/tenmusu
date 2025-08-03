@@ -1,6 +1,7 @@
 package html
 
 import (
+	"errors"
 	"strings"
 	"unicode"
 )
@@ -26,10 +27,43 @@ func CSSParse(s string) []CSSRule {
 	return parser.parse()
 }
 
+func (p *CSSParser) ignoreUntil(s string) rune {
+	for p.i < len(p.s) {
+		if contains(s, rune(p.s[p.i])) {
+			return rune(p.s[p.i])
+		}
+		p.i++
+	}
+	return 0 // End of string
+}
+
+func (p *CSSParser) skipSpaceAndComments() {
+	p.whitespace()
+	for ok := p.comment(); ok; ok = p.comment() {
+		p.whitespace()
+	}
+}
+
 func (p *CSSParser) whitespace() {
 	for p.i < len(p.s) && unicode.IsSpace(rune(p.s[p.i])) {
 		p.i++
 	}
+}
+
+func (p *CSSParser) comment() bool {
+	if p.i+1 < len(p.s) && p.s[p.i] == '/' && p.s[p.i+1] == '*' {
+		p.i += 2 // skip /*
+		for p.i+1 < len(p.s) && !(p.s[p.i] == '*' && p.s[p.i+1] == '/') {
+			p.i++
+		}
+		if p.i+1 < len(p.s) {
+			p.i += 2 // skip */
+			return true
+		} else {
+			println("[CSS PARSER] unterminated comment")
+		}
+	}
+	return false
 }
 
 func (p *CSSParser) word() string {
@@ -43,16 +77,16 @@ func (p *CSSParser) word() string {
 		}
 	}
 	if start >= p.i {
-		println("[WARNING][CSS PARSER] unexpected end of word")
-		println(p.s, " at ", p.i)
+		println("[CSS PARSER] unexpected end of word", p.i)
+		// println(p.s, " at ", p.i)
+		return ""
 	}
 	return p.s[start:p.i]
 }
 
 func (p *CSSParser) literal(literal rune) {
 	if !(p.i < len(p.s) && rune(p.s[p.i]) == literal) {
-		println("[WARNING][CSS PARSER] expected string literal")
-		print("   "+p.s, " at ", p.i, " expected ", string(literal))
+		print("[CSS PARSER] expected string literal ", string(literal))
 		if p.i < len(p.s) {
 			println(" but got ", string(p.s[p.i]))
 		} else {
@@ -62,23 +96,37 @@ func (p *CSSParser) literal(literal rune) {
 	p.i++
 }
 
-func (p *CSSParser) pair() (string, string) {
+func (p *CSSParser) pair() (string, string, error) {
 	prop := p.word()
-	p.whitespace()
+	if prop == "" {
+		return "", "", errors.New("[CSS PARSER] expected property name")
+	}
+	p.skipSpaceAndComments()
 	p.literal(':')
-	p.whitespace()
+	p.skipSpaceAndComments()
 	value := p.word()
-	return strings.ToLower(prop), value
+	if value == "" {
+		return "", "", errors.New("[CSS PARSER] expected property value")
+	}
+	return strings.ToLower(prop), value, nil
 }
 
 func (p *CSSParser) body() map[string]string {
 	pairs := make(map[string]string)
 	for p.i < len(p.s) && rune(p.s[p.i]) != '}' {
-		prop, value := p.pair()
+		prop, value, err := p.pair()
+		if err != nil {
+			println("[CSS PARSER] Error parsing property:", err.Error())
+			why := p.ignoreUntil(";}")
+			if why == ';' {
+				p.literal(';')
+			}
+			continue
+		}
 		pairs[prop] = value
-		p.whitespace()
+		p.skipSpaceAndComments()
 		p.literal(';')
-		p.whitespace()
+		p.skipSpaceAndComments()
 	}
 	return pairs
 }
@@ -91,10 +139,18 @@ type CSSRule struct {
 func (p *CSSParser) parse() []CSSRule {
 	rules := []CSSRule{}
 	for p.i < len(p.s) {
-		p.whitespace()
-		selector := p.selector()
+		p.skipSpaceAndComments()
+		selector, err := p.selector()
+		if err != nil {
+			println("[CSS PARSER] Error parsing selector:", err.Error())
+			why := p.ignoreUntil("}")
+			if why == '}' {
+				p.literal('}')
+			}
+			continue
+		}
 		p.literal('{')
-		p.whitespace()
+		p.skipSpaceAndComments()
 		body := p.body()
 		p.literal('}')
 		rule := CSSRule{
@@ -106,17 +162,24 @@ func (p *CSSParser) parse() []CSSRule {
 	return rules
 }
 
-func (p *CSSParser) selector() Selector {
+func (p *CSSParser) selector() (Selector, error) {
 	ret := Selector(nil)
-	ret = &TagSelector{tag: strings.ToLower(p.word())}
-	p.whitespace()
+	tag := p.word()
+	if tag == "" {
+		return nil, errors.New("[CSS PARSER] expected tag name")
+	}
+	ret = &TagSelector{tag: strings.ToLower(tag)}
+	p.skipSpaceAndComments()
 	for p.i < len(p.s) && rune(p.s[p.i]) != '{' {
 		tag := p.word()
+		if tag == "" {
+			return nil, errors.New("[CSS PARSER] expected tag name")
+		}
 		decsendant := TagSelector{tag: strings.ToLower(tag)}
 		ret = &DescendantSelector{ancestor: ret, descendant: &decsendant}
-		p.whitespace()
+		p.skipSpaceAndComments()
 	}
-	return ret
+	return ret, nil
 }
 
 func contains(s string, r rune) bool {
