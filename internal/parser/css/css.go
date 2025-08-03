@@ -2,6 +2,7 @@ package css
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -207,6 +208,15 @@ func ApplyStyle(node *model.Node, rules []CSSRule) {
 	if node.Style == nil {
 		node.Style = make(map[string]string)
 	}
+	// inherited properties
+	for prop, defaultValue := range INHERITED_PROPERTIES {
+		if node.Parent != nil {
+			node.Style[prop] = node.Parent.Style[prop]
+		} else {
+			node.Style[prop] = defaultValue
+		}
+	}
+
 	// sheet
 	for _, rule := range rules {
 		if !rule.Selector.Matches(node) {
@@ -220,6 +230,19 @@ func ApplyStyle(node *model.Node, rules []CSSRule) {
 	if styleText, ok := node.Attrs["style"]; ok {
 		node.Style = InlineCSSParse(styleText)
 	}
+
+	// font-size
+	if strings.HasSuffix(node.Style["font-size"], "%") {
+		parentSize := INHERITED_PROPERTIES["font-size"]
+		if node.Parent != nil {
+			parentSize = node.Parent.Style["font-size"]
+		}
+		fs, _ := strings.CutSuffix(node.Style["font-size"], "%")
+		nodePct, _ := strconv.Atoi(fs)
+		parentPx, _ := strconv.Atoi(strings.TrimSuffix(parentSize, "px"))
+		node.Style["font-size"] = strconv.Itoa((parentPx*nodePct)/100) + "px"
+	}
+
 	// children
 	for i := range node.Children {
 		ApplyStyle(&node.Children[i], rules)
