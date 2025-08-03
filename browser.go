@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"sort"
 
 	"github.com/pishiko/tenmusu/internal/html"
 	"github.com/pishiko/tenmusu/internal/http"
@@ -53,6 +54,9 @@ func (b *Browser) Load(url string) {
 		rules = append(rules, html.CSSParse(response.Body)...)
 	}
 
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].Selector.Priority() > rules[j].Selector.Priority()
+	})
 	node.ApplyStyle(rules)
 
 	// printDebug(node, 0)

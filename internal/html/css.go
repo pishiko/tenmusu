@@ -193,6 +193,7 @@ func contains(s string, r rune) bool {
 
 type Selector interface {
 	Matches(node *Node) bool
+	Priority() int
 }
 
 type TagSelector struct {
@@ -201,6 +202,10 @@ type TagSelector struct {
 
 func (ts *TagSelector) Matches(node *Node) bool {
 	return node.Type == Element && node.Value == ts.tag
+}
+
+func (ts *TagSelector) Priority() int {
+	return 1
 }
 
 type DescendantSelector struct {
@@ -219,4 +224,8 @@ func (ds *DescendantSelector) Matches(node *Node) bool {
 		node = node.Parent
 	}
 	return false
+}
+
+func (ds *DescendantSelector) Priority() int {
+	return ds.ancestor.Priority() + ds.descendant.Priority()
 }
