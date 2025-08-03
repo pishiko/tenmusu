@@ -182,16 +182,16 @@ func (l *BlockLayout) layoutMode() LayoutMode {
 	return Block
 }
 
-func (l *BlockLayout) recurse(n model.Node) {
-	switch n.Type {
+func (l *BlockLayout) recurse(node model.Node) {
+	switch node.Type {
 	case model.Element:
-		l.openTag(n.Value)
-		for _, child := range n.Children {
+		l.openTag(node.Value)
+		for _, child := range node.Children {
 			l.recurse(child)
 		}
-		l.closeTag(n.Value)
+		l.closeTag(node.Value)
 	case model.Text:
-		l.text(n)
+		l.text(node)
 	}
 }
 

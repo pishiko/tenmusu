@@ -76,22 +76,22 @@ func main() {
 	browser.Load(url)
 }
 
-func printDebug(n model.Node, indent int) {
+func printDebug(node model.Node, indent int) {
 	for i := 0; i < indent; i++ {
 		print("  ")
 	}
-	switch n.Type {
+	switch node.Type {
 	case model.Text:
-		println(n.Value)
+		println(node.Value)
 	case model.Element:
-		println("<" + n.Value + ">")
-		for _, node := range n.Children {
+		println("<" + node.Value + ">")
+		for _, node := range node.Children {
 			printDebug(node, indent+1)
 		}
 		for i := 0; i < indent; i++ {
 			print("  ")
 		}
-		println("</" + n.Value + ">")
+		println("</" + node.Value + ">")
 	}
 }
 
@@ -99,23 +99,23 @@ type AfterParser struct {
 	cssLinks []string
 }
 
-func (p *AfterParser) recursive(n model.Node) {
-	if n.Type == model.Element && n.Value == "link" {
-		if rel, ok := n.Attrs["rel"]; ok && rel == "stylesheet" {
-			if href, ok := n.Attrs["href"]; ok {
+func (p *AfterParser) recursive(node model.Node) {
+	if node.Type == model.Element && node.Value == "link" {
+		if rel, ok := node.Attrs["rel"]; ok && rel == "stylesheet" {
+			if href, ok := node.Attrs["href"]; ok {
 				p.cssLinks = append(p.cssLinks, href)
 			}
 		}
 	}
-	for _, child := range n.Children {
+	for _, child := range node.Children {
 		p.recursive(child)
 	}
 }
 
-func afterParse(n model.Node) []string {
+func afterParse(node model.Node) []string {
 	p := &AfterParser{
 		cssLinks: []string{},
 	}
-	p.recursive(n)
+	p.recursive(node)
 	return p.cssLinks
 }

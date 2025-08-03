@@ -11,8 +11,8 @@ type TagSelector struct {
 	tag string
 }
 
-func (ts *TagSelector) Matches(n *model.Node) bool {
-	return n.Type == model.Element && n.Value == ts.tag
+func (ts *TagSelector) Matches(node *model.Node) bool {
+	return node.Type == model.Element && node.Value == ts.tag
 }
 
 func (ts *TagSelector) Priority() int {

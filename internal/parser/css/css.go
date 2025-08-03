@@ -8,6 +8,15 @@ import (
 	"github.com/pishiko/tenmusu/internal/parser/model"
 )
 
+var (
+	INHERITED_PROPERTIES = map[string]string{
+		"font-size":   "16px",
+		"font-style":  "normal",
+		"font-weight": "normal",
+		"color":       "black",
+	}
+)
+
 type CSSParser struct {
 	s string
 	i int
@@ -193,25 +202,26 @@ func contains(s string, r rune) bool {
 	return false
 }
 
-func ApplyStyle(n *model.Node, rules []CSSRule) {
-	if n.Style == nil {
-		n.Style = make(map[string]string)
+func ApplyStyle(node *model.Node, rules []CSSRule) {
+	// init
+	if node.Style == nil {
+		node.Style = make(map[string]string)
 	}
 	// sheet
 	for _, rule := range rules {
-		if !rule.Selector.Matches(n) {
+		if !rule.Selector.Matches(node) {
 			continue
 		}
 		for property, value := range rule.Body {
-			n.Style[property] = value
+			node.Style[property] = value
 		}
 	}
 	// inline
-	if styleText, ok := n.Attrs["style"]; ok {
-		n.Style = InlineCSSParse(styleText)
+	if styleText, ok := node.Attrs["style"]; ok {
+		node.Style = InlineCSSParse(styleText)
 	}
 	// children
-	for i := range n.Children {
-		ApplyStyle(&n.Children[i], rules)
+	for i := range node.Children {
+		ApplyStyle(&node.Children[i], rules)
 	}
 }
