@@ -20,13 +20,13 @@ const (
 )
 
 type DocumentLayout struct {
-	node       model.Node
+	node       *model.Node
 	screenRect image.Rectangle
 	children   []*BlockLayout
 	drawables  []Drawable
 }
 
-func NewDocumentLayout(node model.Node, screenRect image.Rectangle) *DocumentLayout {
+func NewDocumentLayout(node *model.Node, screenRect image.Rectangle) *DocumentLayout {
 	return &DocumentLayout{
 		node:       node,
 		screenRect: screenRect,
@@ -45,7 +45,7 @@ func (l *DocumentLayout) layout() {
 		height:   float64(l.screenRect.Dy()) - 16.0,
 	}
 
-	child := NewBlockLayout(&l.node, parent, nil)
+	child := NewBlockLayout(l.node, parent, nil)
 	l.children = append(l.children, child)
 	child.layout()
 	l.drawables = []Drawable{}
@@ -130,7 +130,7 @@ func (l *BlockLayout) layout() {
 	case Block:
 		previous := (*BlockLayout)(nil)
 		for _, child := range l.node.Children {
-			next := NewBlockLayout(&child, l, previous)
+			next := NewBlockLayout(child, l, previous)
 			l.children = append(l.children, next)
 			previous = next
 		}
@@ -141,7 +141,7 @@ func (l *BlockLayout) layout() {
 		l.style = "roman"
 		l.size = 16.0
 		l.line = []TextDrawable{}
-		l.recurse(*l.node)
+		l.recurse(l.node)
 		l.flush()
 	}
 	for _, child := range l.children {
@@ -183,7 +183,7 @@ func (l *BlockLayout) layoutMode() LayoutMode {
 	return Block
 }
 
-func (l *BlockLayout) recurse(node model.Node) {
+func (l *BlockLayout) recurse(node *model.Node) {
 	switch node.Type {
 	case model.Element:
 		l.openTag(node.Value)
@@ -219,7 +219,7 @@ func (l *BlockLayout) closeTag(tag string) {
 	}
 }
 
-func (l *BlockLayout) text(node model.Node) {
+func (l *BlockLayout) text(node *model.Node) {
 
 	if weight, ok := node.Style["font-weight"]; ok {
 		l.weight = weight

@@ -59,7 +59,7 @@ func (b *Browser) Load(url string) {
 	sort.Slice(rules, func(i, j int) bool {
 		return rules[i].Selector.Priority() > rules[j].Selector.Priority()
 	})
-	css.ApplyStyle(&node, rules)
+	css.ApplyStyle(node, rules)
 
 	// printDebug(node, 0)
 	window.Open(node)
@@ -76,7 +76,7 @@ func main() {
 	browser.Load(url)
 }
 
-func printDebug(node model.Node, indent int) {
+func printDebug(node *model.Node, indent int) {
 	for i := 0; i < indent; i++ {
 		print("  ")
 	}
@@ -99,7 +99,7 @@ type AfterParser struct {
 	cssLinks []string
 }
 
-func (p *AfterParser) recursive(node model.Node) {
+func (p *AfterParser) recursive(node *model.Node) {
 	if node.Type == model.Element && node.Value == "link" {
 		if rel, ok := node.Attrs["rel"]; ok && rel == "stylesheet" {
 			if href, ok := node.Attrs["href"]; ok {
@@ -112,7 +112,7 @@ func (p *AfterParser) recursive(node model.Node) {
 	}
 }
 
-func afterParse(node model.Node) []string {
+func afterParse(node *model.Node) []string {
 	p := &AfterParser{
 		cssLinks: []string{},
 	}

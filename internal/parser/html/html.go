@@ -9,14 +9,14 @@ import (
 
 type Parser struct {
 	body       string
-	unfinished util.Stack[model.Node]
-	node       model.Node
+	unfinished util.Stack[*model.Node]
+	node       *model.Node
 }
 
-func Parse(body string) model.Node {
+func Parse(body string) *model.Node {
 	parser := &Parser{
 		body:       body,
-		unfinished: util.Stack[model.Node]{},
+		unfinished: util.Stack[*model.Node]{},
 	}
 	parser.parse()
 	return parser.node
@@ -46,7 +46,7 @@ func (p *Parser) parse() {
 	}
 
 	// finish
-	for node, ok := p.unfinished.Pop(); ok; node, ok = p.unfinished.Pop() {
+	for node := p.unfinished.Pop(); node != nil; node = p.unfinished.Pop() {
 		p.node = node
 	}
 }
@@ -74,7 +74,7 @@ func (p *Parser) addElement(text string) {
 
 	if name[0] == '/' {
 		name = name[1:]
-		if node, ok := p.unfinished.Pop(); ok {
+		if node := p.unfinished.Pop(); node != nil {
 			if node.Value != name {
 				println("Mismatched closing tag: " + name + " for " + node.Value)
 			}
@@ -92,17 +92,17 @@ func (p *Parser) addElement(text string) {
 		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
-				parent.Children = append(parent.Children, model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs})
+				parent.Children = append(parent.Children, &model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs})
 			} else {
-				p.node = model.Node{Type: model.Element, Value: name, Attrs: attrs}
+				p.node = &model.Node{Type: model.Element, Value: name, Attrs: attrs}
 			}
 			return
 		}
 		if parent := p.unfinished.Peek(); parent != nil {
-			node := model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs}
+			node := &model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs}
 			p.unfinished.Push(node)
 		} else {
-			node := model.Node{Type: model.Element, Value: name, Parent: nil, Attrs: attrs}
+			node := &model.Node{Type: model.Element, Value: name, Parent: nil, Attrs: attrs}
 			p.unfinished.Push(node)
 		}
 	}
@@ -114,9 +114,9 @@ func (p *Parser) addText(text string) {
 		return
 	}
 	if parent := p.unfinished.Peek(); parent != nil {
-		parent.Children = append(parent.Children, model.Node{Type: model.Text, Value: text, Parent: parent})
+		parent.Children = append(parent.Children, &model.Node{Type: model.Text, Value: text, Parent: parent})
 	} else {
-		p.node = model.Node{Type: model.Text, Value: text}
+		p.node = &model.Node{Type: model.Text, Value: text}
 	}
 }
 

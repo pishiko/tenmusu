@@ -245,6 +245,6 @@ func ApplyStyle(node *model.Node, rules []CSSRule) {
 
 	// children
 	for i := range node.Children {
-		ApplyStyle(&node.Children[i], rules)
+		ApplyStyle(node.Children[i], rules)
 	}
 }

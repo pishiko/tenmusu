@@ -10,7 +10,7 @@ const (
 type Node struct {
 	Type     NodeType
 	Value    string
-	Children []Node
+	Children []*Node
 	Parent   *Node
 	Attrs    map[string]string
 	Style    map[string]string
