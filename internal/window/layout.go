@@ -2,6 +2,7 @@ package window
 
 import (
 	"image"
+	"image/color"
 	"strconv"
 	"strings"
 	"unicode"
@@ -72,6 +73,7 @@ type BlockLayout struct {
 	y      float64
 	width  float64
 	height float64
+	color  color.RGBA
 
 	cursorX   float64
 	cursorY   float64
@@ -140,6 +142,7 @@ func (l *BlockLayout) layout() {
 		l.weight = "normal"
 		l.style = "roman"
 		l.size = 16.0
+		l.color = color.RGBA{R: 0, G: 0, B: 0, A: 255}
 		l.line = []TextDrawable{}
 		l.recurse(l.node)
 		l.flush()
@@ -198,10 +201,6 @@ func (l *BlockLayout) recurse(node *model.Node) {
 
 func (l *BlockLayout) openTag(tag string) {
 	switch tag {
-	case "em":
-		l.style = "italic"
-	case "strong":
-		l.weight = "bold"
 	case "br":
 		l.flush()
 	}
@@ -209,13 +208,6 @@ func (l *BlockLayout) openTag(tag string) {
 
 func (l *BlockLayout) closeTag(tag string) {
 	switch tag {
-	case "em":
-		l.style = "roman"
-	case "strong":
-		l.weight = "normal"
-	case "p":
-		l.flush()
-		l.cursorY += 16.0 // Add some space for paragraph
 	}
 }
 
@@ -227,6 +219,12 @@ func (l *BlockLayout) text(node *model.Node) {
 	if style, ok := node.Style["font-style"]; ok {
 		l.style = style
 	}
+	if c, ok := node.Style["color"]; ok {
+		l.color = css.RGBA(c)
+	} else {
+		l.color = color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	}
+
 	if fs, ok := node.Style["font-size"]; ok {
 		fspx, _ := strings.CutSuffix(fs, "px")
 		fspxInt, _ := strconv.Atoi(fspx)
@@ -263,6 +261,7 @@ func (l *BlockLayout) text(node *model.Node) {
 			weight: l.weight,
 			w:      w,
 			h:      h,
+			color:  l.color,
 		})
 
 		// Update x position for the next character
@@ -302,6 +301,7 @@ func (l *BlockLayout) flush() {
 				weight: d.weight,
 				w:      d.w,
 				h:      d.h,
+				color:  d.color,
 			},
 		)
 	}
