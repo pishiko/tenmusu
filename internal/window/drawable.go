@@ -19,6 +19,7 @@ type TextDrawable struct {
 	style  string
 	weight string
 	w, h   float64
+	color  color.RGBA
 }
 
 func (d *TextDrawable) Draw(screen *ebiten.Image, scrollY float64) {
@@ -29,12 +30,14 @@ func (d *TextDrawable) Draw(screen *ebiten.Image, scrollY float64) {
 
 	// Draw the character
 	op := &text.DrawOptions{}
-	color := ebiten.ColorScale{}
-	color.SetR(0)
-	color.SetG(0)
-	color.SetB(0)
-	color.SetA(1)
-	op.ColorScale = color
+
+	r, g, b, a := d.color.RGBA()
+	colorScale := ebiten.ColorScale{}
+	colorScale.SetR(float32(r) / 65535.0)
+	colorScale.SetG(float32(g) / 65535.0)
+	colorScale.SetB(float32(b) / 65535.0)
+	colorScale.SetA(float32(a) / 65535.0)
+	op.ColorScale = colorScale
 
 	if d.style == "italic" {
 		const deg = -15
@@ -60,6 +63,9 @@ func (d *RectDrawable) Draw(screen *ebiten.Image, scrollY float64) {
 
 	width := d.right - d.left
 	height := d.bottom - d.top
+	if width <= 0 || height <= 0 {
+		return
+	}
 	rectImage := ebiten.NewImage(int(width), int(height))
 	rectImage.Fill(d.color)
 	op := &ebiten.DrawImageOptions{}
