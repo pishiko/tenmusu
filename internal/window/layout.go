@@ -78,15 +78,11 @@ type BlockLayout struct {
 	previous Layout
 	children []Layout
 
-	prop  LayoutProperty
-	color color.RGBA
+	prop LayoutProperty
 
 	cursorX   float64
-	cursorY   float64
 	weight    string
-	style     string
 	size      float64
-	line      []TextDrawable
 	drawables []TextDrawable
 }
 
