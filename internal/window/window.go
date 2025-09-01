@@ -32,7 +32,7 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
 	layout := NewDocumentLayout(b.node, screen.Bounds())
-	layout.layout()
+	layout.Layout()
 	for _, drawable := range layout.drawables {
 		drawable.Draw(screen, float64(b.scrollY))
 	}

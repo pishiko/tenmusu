@@ -23,7 +23,7 @@ const (
 type DocumentLayout struct {
 	node       *model.Node
 	screenRect image.Rectangle
-	children   []*BlockLayout
+	children   []Layout
 	drawables  []Drawable
 }
 
@@ -35,45 +35,51 @@ func NewDocumentLayout(node *model.Node, screenRect image.Rectangle) *DocumentLa
 	}
 }
 
-func (l *DocumentLayout) layout() {
+func (l *DocumentLayout) Layout() {
 	parent := &BlockLayout{
-		node:     nil,
-		parent:   nil,
-		previous: nil,
-		x:        8.0,
-		y:        8.0,
-		width:    float64(l.screenRect.Dx()) - 16.0,
-		height:   float64(l.screenRect.Dy()) - 16.0,
+		prop: LayoutProperty{
+			x:      8.0,
+			y:      8.0,
+			width:  float64(l.screenRect.Dx()) - 16.0,
+			height: float64(l.screenRect.Dy()) - 16.0,
+		},
 	}
 
-	child := NewBlockLayout(l.node, parent, nil)
+	child := &BlockLayout{
+		node:     l.node,
+		parent:   parent,
+		children: []Layout{},
+	}
 	l.children = append(l.children, child)
-	child.layout()
+	child.Layout()
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
-		l.drawables = paintTree(child, l.drawables)
+		l.drawables = child.PaintTree(l.drawables)
 	}
 }
 
-func paintTree(layout *BlockLayout, drawables []Drawable) []Drawable {
-	drawables = append(drawables, layout.paint()...)
-	for _, child := range layout.children {
-		drawables = paintTree(child, drawables)
-	}
-	return drawables
-}
-
-type BlockLayout struct {
-	node     *model.Node
-	parent   *BlockLayout
-	previous *BlockLayout
-	children []*BlockLayout
-
+type LayoutProperty struct {
 	x      float64
 	y      float64
 	width  float64
 	height float64
-	color  color.RGBA
+}
+
+type Layout interface {
+	Layout()
+	Paint() []Drawable
+	Prop() LayoutProperty
+	PaintTree([]Drawable) []Drawable
+}
+
+type BlockLayout struct {
+	node     *model.Node
+	parent   Layout
+	previous Layout
+	children []Layout
+
+	prop  LayoutProperty
+	color color.RGBA
 
 	cursorX   float64
 	cursorY   float64
@@ -84,16 +90,11 @@ type BlockLayout struct {
 	drawables []TextDrawable
 }
 
-func NewBlockLayout(node *model.Node, parent *BlockLayout, previous *BlockLayout) *BlockLayout {
-	return &BlockLayout{
-		node:     node,
-		parent:   parent,
-		previous: previous,
-		children: []*BlockLayout{},
-	}
+func (l BlockLayout) Prop() LayoutProperty {
+	return l.prop
 }
 
-func (l *BlockLayout) paint() []Drawable {
+func (l *BlockLayout) Paint() []Drawable {
 	ret := []Drawable{}
 	// bgcolor
 	bgcolor, ok := l.node.Style["background-color"]
@@ -101,10 +102,10 @@ func (l *BlockLayout) paint() []Drawable {
 		bgcolor = "transparent"
 	}
 	if bgcolor != "transparent" {
-		x2, y2 := l.x+l.width, l.y+l.height
+		x2, y2 := l.prop.x+l.prop.width, l.prop.y+l.prop.height
 		ret = append(ret, &RectDrawable{
-			top:    l.y,
-			left:   l.x,
+			top:    l.prop.y,
+			left:   l.prop.x,
 			bottom: y2,
 			right:  x2,
 			color:  css.RGBA(bgcolor),
@@ -119,49 +120,59 @@ func (l *BlockLayout) paint() []Drawable {
 	return ret
 }
 
-func (l *BlockLayout) layout() {
-	l.x = l.parent.x
-	l.width = l.parent.width
+func (l *BlockLayout) Layout() {
+	l.prop.x = l.parent.Prop().x
+	l.prop.width = l.parent.Prop().width
 	if l.previous != nil {
-		l.y = l.previous.y + l.previous.height
+		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
 	} else {
-		l.y = l.parent.y
+		l.prop.y = l.parent.Prop().y
 	}
 
 	switch l.layoutMode() {
 	case Block:
 		previous := (*BlockLayout)(nil)
 		for _, child := range l.node.Children {
-			next := NewBlockLayout(child, l, previous)
+			var next *BlockLayout
+			if previous != nil {
+				next = &BlockLayout{
+					node:     child,
+					parent:   l,
+					previous: previous,
+					children: []Layout{},
+				}
+			} else {
+				next = &BlockLayout{
+					node:     child,
+					parent:   l,
+					children: []Layout{},
+				}
+			}
 			l.children = append(l.children, next)
 			previous = next
 		}
 	case Inline:
-		l.cursorX = 0.0
-		l.cursorY = 0.0
-		l.weight = "normal"
-		l.style = "roman"
-		l.size = 16.0
-		l.color = color.RGBA{R: 0, G: 0, B: 0, A: 255}
-		l.line = []TextDrawable{}
+		l.newLine()
 		l.recurse(l.node)
-		l.flush()
 	}
 	for _, child := range l.children {
-		child.layout()
+		child.Layout()
 	}
 
 	// Height
-	switch l.layoutMode() {
-	case Block:
-		height := 0.0
-		for _, child := range l.children {
-			height += child.height
-		}
-		l.height = height
-	case Inline:
-		l.height = l.cursorY
+	height := 0.0
+	for _, child := range l.children {
+		height += child.Prop().height
 	}
+	l.prop.height = height
+}
+
+func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
+	drawables = append(drawables, l.Paint()...)
+	for _, child := range l.children {
+		drawables = child.PaintTree(drawables)
+	}
+	return drawables
 }
 
 func (l *BlockLayout) layoutMode() LayoutMode {
@@ -195,14 +206,14 @@ func (l *BlockLayout) recurse(node *model.Node) {
 		}
 		l.closeTag(node.Value)
 	case model.Text:
-		l.text(node)
+		l.word(node)
 	}
 }
 
 func (l *BlockLayout) openTag(tag string) {
 	switch tag {
 	case "br":
-		l.flush()
+		// l.flush()
 	}
 }
 
@@ -211,20 +222,7 @@ func (l *BlockLayout) closeTag(tag string) {
 	}
 }
 
-func (l *BlockLayout) text(node *model.Node) {
-
-	if weight, ok := node.Style["font-weight"]; ok {
-		l.weight = weight
-	}
-	if style, ok := node.Style["font-style"]; ok {
-		l.style = style
-	}
-	if c, ok := node.Style["color"]; ok {
-		l.color = css.RGBA(c)
-	} else {
-		l.color = color.RGBA{R: 0, G: 0, B: 0, A: 255}
-	}
-
+func (l *BlockLayout) word(node *model.Node) {
 	if fs, ok := node.Style["font-size"]; ok {
 		fspx, _ := strings.CutSuffix(fs, "px")
 		fspxInt, _ := strconv.Atoi(fspx)
@@ -245,24 +243,25 @@ func (l *BlockLayout) text(node *model.Node) {
 			Size:      l.size,
 			Language:  language.Japanese,
 		}
-		w, h := text.Measure(word, f, f.Metrics().HLineGap)
+		w, _ := text.Measure(word, f, f.Metrics().HLineGap)
 
 		// 右端まで言ったら改行
-		if l.cursorX+w > l.width {
-			l.flush()
+		if l.cursorX+w > l.prop.width {
+			l.newLine()
 		}
 
-		l.line = append(l.line, TextDrawable{
-			word:   word,
-			font:   f,
-			x:      l.cursorX,
-			y:      l.cursorY,
-			style:  l.style,
-			weight: l.weight,
-			w:      w,
-			h:      h,
-			color:  l.color,
-		})
+		line := l.children[len(l.children)-1].(*LineLayout)
+		var previousWord *TextLayout
+		if len(line.children) > 0 {
+			previousWord = line.children[len(line.children)-1]
+		}
+		txt := &TextLayout{
+			node:     node,
+			word:     word,
+			parent:   l,
+			previous: previousWord,
+		}
+		line.children = append(line.children, txt)
 
 		// Update x position for the next character
 		l.cursorX += w
@@ -271,12 +270,121 @@ func (l *BlockLayout) text(node *model.Node) {
 	}
 }
 
-func (l *BlockLayout) flush() {
+func (l *BlockLayout) newLine() {
+	l.cursorX = 0
+	var lastLine Layout
+	if len(l.children) > 0 {
+		lastLine = l.children[len(l.children)-1]
+	}
+	newLine := &LineLayout{
+		node:     l.node,
+		parent:   l,
+		previous: lastLine,
+	}
+	l.children = append(l.children, newLine)
+}
+
+type TextLayout struct {
+	node     *model.Node
+	parent   Layout
+	previous *TextLayout
+	children []Layout
+	prop     LayoutProperty
+
+	word   string
+	font   *text.GoTextFace
+	weight string
+	style  string
+}
+
+func (l *TextLayout) Layout() {
+	l.weight, _ = l.node.Style["font-weight"]
+	l.style, _ = l.node.Style["font-style"]
+
+	fs, _ := l.node.Style["font-size"]
+	fspx, _ := strings.CutSuffix(fs, "px")
+	fspxInt, _ := strconv.Atoi(fspx)
+	size := float64(fspxInt)
+
+	source := fontSource.normal
+	if l.weight == "bold" {
+		source = fontSource.bold
+	}
+	l.font = &text.GoTextFace{
+		Source:    source,
+		Direction: text.DirectionLeftToRight,
+		Size:      size,
+		Language:  language.Japanese,
+	}
+	w, h := text.Measure(l.word, l.font, l.font.Metrics().HLineGap)
+	l.prop.width = float64(w)
+	l.prop.height = float64(h)
+
+	if l.previous != nil {
+		preFont := l.previous.font
+		space, _ := text.Measure(" ", preFont, preFont.Metrics().HLineGap)
+		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + float64(space)
+	}
+
+}
+func (l TextLayout) Prop() LayoutProperty {
+	return l.prop
+}
+func (l *TextLayout) Paint() []Drawable {
+	color := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if c, ok := l.node.Style["color"]; ok {
+		color = css.RGBA(c)
+	}
+	return []Drawable{&TextDrawable{
+		word:   l.word,
+		font:   l.font,
+		x:      l.prop.x,
+		y:      l.prop.y,
+		style:  l.style,
+		weight: l.weight,
+		w:      l.prop.width,
+		h:      l.prop.height,
+		color:  color,
+	}}
+}
+
+func (l *TextLayout) PaintTree(drawables []Drawable) []Drawable {
+	drawables = append(drawables, l.Paint()...)
+	for _, child := range l.children {
+		drawables = child.PaintTree(drawables)
+	}
+	return drawables
+}
+
+type LineLayout struct {
+	node     *model.Node
+	parent   Layout
+	previous Layout
+	children []*TextLayout
+
+	prop LayoutProperty
+}
+
+func (l *LineLayout) Layout() {
+
+	l.prop.width = l.parent.Prop().width
+	l.prop.x = l.parent.Prop().x
+
+	if l.previous != nil {
+		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
+	} else {
+		l.prop.y = l.parent.Prop().y
+	}
+
+	for _, child := range l.children {
+		child.Layout()
+	}
+
 	maxAscent := 0.0
 	maxDescent := 0.0
 	maxGap := 0.0
-	for _, d := range l.line {
-		metrics := d.font.Metrics()
+	for _, txt := range l.children {
+		metrics := txt.font.Metrics()
 
 		if metrics.HAscent > maxAscent {
 			maxAscent = metrics.HAscent
@@ -288,24 +396,25 @@ func (l *BlockLayout) flush() {
 			maxGap = metrics.HLineGap
 		}
 	}
-	for _, d := range l.line {
-		baseline := l.cursorY + maxAscent
-		y := baseline - d.font.Metrics().HAscent
-		l.drawables = append(l.drawables,
-			TextDrawable{
-				word:   d.word,
-				font:   d.font,
-				x:      l.x + d.x,
-				y:      l.y + y,
-				style:  d.style,
-				weight: d.weight,
-				w:      d.w,
-				h:      d.h,
-				color:  d.color,
-			},
-		)
+	baseline := l.prop.y + maxAscent
+
+	for _, txt := range l.children {
+		txt.prop.y = baseline - txt.font.Metrics().HAscent
 	}
-	l.cursorY += (maxAscent + maxDescent) + maxGap
-	l.line = []TextDrawable{}
-	l.cursorX = 0
+
+	l.prop.height = (maxAscent + maxDescent) + maxGap
+}
+func (l LineLayout) Prop() LayoutProperty {
+	return l.prop
+}
+func (l *LineLayout) Paint() []Drawable {
+	return []Drawable{}
+}
+
+func (l *LineLayout) PaintTree(drawables []Drawable) []Drawable {
+	drawables = append(drawables, l.Paint()...)
+	for _, child := range l.children {
+		drawables = child.PaintTree(drawables)
+	}
+	return drawables
 }
