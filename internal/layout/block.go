@@ -109,24 +109,3 @@ func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
 	}
 	return drawables
 }
-
-func (l *BlockLayout) recurse(node *model.Node) {
-	l.openTag(node.Value)
-	for _, child := range node.Children {
-		l.recurse(child)
-	}
-	l.closeTag(node.Value)
-
-}
-
-func (l *BlockLayout) openTag(tag string) {
-	switch tag {
-	case "br":
-		// l.flush()
-	}
-}
-
-func (l *BlockLayout) closeTag(tag string) {
-	switch tag {
-	}
-}
