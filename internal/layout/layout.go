@@ -1,4 +1,4 @@
-package window
+package layout
 
 import (
 	"image"
@@ -35,7 +35,7 @@ func NewDocumentLayout(node *model.Node, screenRect image.Rectangle) *DocumentLa
 	}
 }
 
-func (l *DocumentLayout) Layout() {
+func (l *DocumentLayout) Layout() []Drawable {
 	parent := &BlockLayout{
 		prop: LayoutProperty{
 			x:      8.0,
@@ -52,10 +52,13 @@ func (l *DocumentLayout) Layout() {
 	}
 	l.children = append(l.children, child)
 	child.Layout()
+	// debugPrint(child, 0)
+	// os.Exit(0)
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
 		l.drawables = child.PaintTree(l.drawables)
 	}
+	return l.drawables
 }
 
 type LayoutProperty struct {
@@ -171,12 +174,12 @@ func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
 	return drawables
 }
 
-func (l *BlockLayout) layoutMode() LayoutMode {
-	switch l.node.Type {
+func getLayoutMode(node *model.Node) LayoutMode {
+	switch node.Type {
 	case model.Text:
 		return Inline
 	case model.Element:
-		switch l.node.Value {
+		switch node.Value {
 		case "html", "body", "article", "section", "nav", "aside",
 			"h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
 			"footer", "address", "p", "hr", "pre", "blockquote",
@@ -185,12 +188,16 @@ func (l *BlockLayout) layoutMode() LayoutMode {
 			"legend", "details", "summary":
 			return Block
 		default:
-			if len(l.node.Children) > 0 {
+			if len(node.Children) > 0 {
 				return Inline
 			}
 		}
 	}
 	return Block
+}
+
+func (l *BlockLayout) layoutMode() LayoutMode {
+	return getLayoutMode(l.node)
 }
 
 func (l *BlockLayout) recurse(node *model.Node) {
@@ -268,14 +275,19 @@ func (l *BlockLayout) word(node *model.Node) {
 
 func (l *BlockLayout) newLine() {
 	l.cursorX = 0
-	var lastLine Layout
+	var newLine *LineLayout
 	if len(l.children) > 0 {
-		lastLine = l.children[len(l.children)-1]
-	}
-	newLine := &LineLayout{
-		node:     l.node,
-		parent:   l,
-		previous: lastLine,
+		lastLine := l.children[len(l.children)-1]
+		newLine = &LineLayout{
+			node:     l.node,
+			parent:   l,
+			previous: lastLine,
+		}
+	} else {
+		newLine = &LineLayout{
+			node:   l.node,
+			parent: l,
+		}
 	}
 	l.children = append(l.children, newLine)
 }
@@ -413,4 +425,42 @@ func (l *LineLayout) PaintTree(drawables []Drawable) []Drawable {
 		drawables = child.PaintTree(drawables)
 	}
 	return drawables
+}
+
+func debugPrint(layout Layout, indent int) {
+	switch v := layout.(type) {
+	case *BlockLayout:
+		name := "Block"
+		if v.layoutMode() == Inline {
+			name = "Inline"
+		}
+		println(strings.Repeat("  ", indent) + name + "Layout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
+			" y=" + strconv.Itoa(int(v.prop.y)) +
+			" w=" + strconv.Itoa(int(v.prop.width)) +
+			" h=" + strconv.Itoa(int(v.prop.height)))
+	case *LineLayout:
+		println(strings.Repeat("  ", indent) + "LineLayout: x=" + strconv.Itoa(int(v.prop.x)) +
+			" y=" + strconv.Itoa(int(v.prop.y)) +
+			" w=" + strconv.Itoa(int(v.prop.width)) +
+			" h=" + strconv.Itoa(int(v.prop.height)))
+	case *TextLayout:
+		println(strings.Repeat("  ", indent) + "TextLayout: \"" + v.word + "\" x=" + strconv.Itoa(int(v.prop.x)) +
+			" y=" + strconv.Itoa(int(v.prop.y)) +
+			" w=" + strconv.Itoa(int(v.prop.width)) +
+			" h=" + strconv.Itoa(int(v.prop.height)))
+	}
+	switch v := layout.(type) {
+	case *BlockLayout:
+		for _, child := range v.children {
+			debugPrint(child, indent+1)
+		}
+	case *LineLayout:
+		for _, child := range v.children {
+			debugPrint(child, indent+1)
+		}
+	case *TextLayout:
+		for _, child := range v.children {
+			debugPrint(child, indent+1)
+		}
+	}
 }

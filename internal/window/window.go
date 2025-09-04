@@ -7,18 +7,28 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/pishiko/tenmusu/internal/layout"
 	"github.com/pishiko/tenmusu/internal/parser/model"
 )
 
 type Window struct {
 	node    *model.Node
 	scrollY int
+	clicked bool
+	cursor  struct {
+		x, y int
+	}
 }
 
 func (b *Window) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ebiten.Termination
 	}
+
+	mx, my := ebiten.CursorPosition()
+	b.cursor.x, b.cursor.y = mx, my
+	b.clicked = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+
 	if ebiten.IsKeyPressed(ebiten.KeyUp) {
 		b.scrollY += 5
 	}
@@ -31,9 +41,9 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	screen.Fill(color.White)
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	layout := NewDocumentLayout(b.node, screen.Bounds())
-	layout.Layout()
-	for _, drawable := range layout.drawables {
+	l := layout.NewDocumentLayout(b.node, screen.Bounds())
+	drawables := l.Layout()
+	for _, drawable := range drawables {
 		drawable.Draw(screen, float64(b.scrollY))
 	}
 
