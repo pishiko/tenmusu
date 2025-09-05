@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/pishiko/tenmusu/internal/parser/css"
 	"github.com/pishiko/tenmusu/internal/parser/model"
 	"golang.org/x/text/language"
 )
@@ -37,22 +38,9 @@ func (l InlineContext) Prop() LayoutProperty {
 
 func (l *InlineContext) Paint() []Drawable {
 	ret := []Drawable{}
-	// // bgcolor
-	// bgcolor, ok := l.node.Style["background-color"]
-	// if !ok {
-	// 	bgcolor = "transparent"
-	// }
-	// if bgcolor != "transparent" {
-	// 	x2, y2 := l.prop.x+l.prop.width, l.prop.y+l.prop.height
-	// 	ret = append(ret, &RectDrawable{
-	// 		top:    l.prop.y,
-	// 		left:   l.prop.x,
-	// 		bottom: y2,
-	// 		right:  x2,
-	// 		color:  css.RGBA(bgcolor),
-	// 	})
-	// }
-
+	for _, inline := range l.inlineItems {
+		ret = append(ret, inline.PaintTree(ret)...)
+	}
 	return ret
 }
 
@@ -142,20 +130,41 @@ type InlineLayout struct {
 	weight string
 }
 
-// func (l InlineLayout) Prop() LayoutProperty {
-// 	return l.prop
-// }
-
-// func (l InlineLayout) Layout() {
-
-// }
-
 func (l *InlineLayout) Paint() []Drawable {
-	return []Drawable{}
+	ret := []Drawable{}
+
+	if len(l.children) == 0 {
+		return ret
+	}
+	// bgcolor
+	bgcolor, ok := l.node.Style["background-color"]
+	if !ok {
+		bgcolor = "transparent"
+	}
+	prevRight := l.children[0].prop.x
+	prevTop := l.children[0].prop.y
+	if bgcolor != "transparent" {
+		for _, child := range l.children {
+			if child.prop.y > prevTop {
+				prevRight = child.prop.x
+			}
+			right, bottom := child.prop.x+child.prop.width, child.prop.y+child.prop.height
+			ret = append(ret, &RectDrawable{
+				top:    child.prop.y,
+				left:   prevRight,
+				bottom: bottom,
+				right:  right,
+				color:  css.RGBA(bgcolor),
+			})
+			prevRight = right
+			prevTop = child.prop.y
+		}
+	}
+	return ret
 }
 
 func (l *InlineLayout) PaintTree(drawables []Drawable) []Drawable {
-	return drawables
+	return l.Paint()
 }
 
 func (l *InlineLayout) Items() []*TextLayout {
