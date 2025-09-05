@@ -8,6 +8,13 @@ import (
 	"github.com/pishiko/tenmusu/internal/parser/model"
 )
 
+type LayoutMode int
+
+const (
+	Block LayoutMode = iota
+	Inline
+)
+
 type DocumentLayout struct {
 	node       *model.Node
 	screenRect image.Rectangle
@@ -40,7 +47,8 @@ func (l *DocumentLayout) Layout() []Drawable {
 	}
 	l.children = append(l.children, child)
 	child.Layout()
-	debugPrint(child, 0)
+	// debugPrint(child, 0)
+	// os.Exit(0)
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
 		l.drawables = child.PaintTree(l.drawables)
@@ -62,10 +70,10 @@ type Layout interface {
 	PaintTree([]Drawable) []Drawable
 }
 
-func isBlockLayout(node *model.Node) bool {
+func getLayoutMode(node *model.Node) LayoutMode {
 	switch node.Type {
 	case model.Text:
-		return false
+		return Inline
 	case model.Element:
 		switch node.Value {
 		case "html", "body", "article", "section", "nav", "aside",
@@ -74,30 +82,24 @@ func isBlockLayout(node *model.Node) bool {
 			"ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
 			"figcaption", "main", "div", "table", "form", "fieldset",
 			"legend", "details", "summary":
-			return true
+			return Block
 		default:
 			if len(node.Children) > 0 {
-				return false
+				return Inline
 			}
 		}
 	}
-	return false
+	return Block
 }
 
-var debugPrinted = false
-
 func debugPrint(layout Layout, indent int) {
-	if debugPrinted {
-		return
-	}
 	switch v := layout.(type) {
 	case *BlockLayout:
-		println(strings.Repeat("  ", indent) + "BlockLayout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
-			" y=" + strconv.Itoa(int(v.prop.y)) +
-			" w=" + strconv.Itoa(int(v.prop.width)) +
-			" h=" + strconv.Itoa(int(v.prop.height)))
-	case *InlineLayout:
-		println(strings.Repeat("  ", indent) + "InlineLayout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
+		name := "Block"
+		if v.layoutMode() == Inline {
+			name = "Inline"
+		}
+		println(strings.Repeat("  ", indent) + name + "Layout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
 			" y=" + strconv.Itoa(int(v.prop.y)) +
 			" w=" + strconv.Itoa(int(v.prop.width)) +
 			" h=" + strconv.Itoa(int(v.prop.height)))
@@ -125,12 +127,5 @@ func debugPrint(layout Layout, indent int) {
 		for _, child := range v.children {
 			debugPrint(child, indent+1)
 		}
-	case *InlineLayout:
-		for _, child := range v.children {
-			debugPrint(child, indent+1)
-		}
-	}
-	if !debugPrinted && indent == 0 {
-		debugPrinted = true
 	}
 }

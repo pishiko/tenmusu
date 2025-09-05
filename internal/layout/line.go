@@ -86,6 +86,7 @@ func (l *TextLayout) PaintTree(drawables []Drawable) []Drawable {
 type LineLayout struct {
 	node     *model.Node
 	parent   Layout
+	previous Layout
 	children []*TextLayout
 
 	prop LayoutProperty
@@ -96,7 +97,11 @@ func (l *LineLayout) Layout() {
 	l.prop.width = l.parent.Prop().width
 	l.prop.x = l.parent.Prop().x
 
-	l.prop.y = l.parent.Prop().y
+	if l.previous != nil {
+		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
+	} else {
+		l.prop.y = l.parent.Prop().y
+	}
 
 	for _, child := range l.children {
 		child.Layout()
