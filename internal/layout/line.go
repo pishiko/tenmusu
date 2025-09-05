@@ -25,6 +25,8 @@ type TextLayout struct {
 }
 
 func (l *TextLayout) Layout() {
+	l.prop.x = l.parent.Prop().x
+
 	l.weight, _ = l.node.Style["font-weight"]
 	l.style, _ = l.node.Style["font-style"]
 
