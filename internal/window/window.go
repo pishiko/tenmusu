@@ -62,6 +62,7 @@ func NewWindow(node *model.Node) *Window {
 func Open(node *model.Node) {
 	ebiten.SetWindowSize(800, 600)
 	ebiten.SetWindowTitle("tenmusu")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(NewWindow(node)); err != nil {
 		panic(err)
 	}

@@ -47,8 +47,7 @@ func (l *DocumentLayout) Layout() []Drawable {
 	}
 	l.children = append(l.children, child)
 	child.Layout()
-	// debugPrint(child, 0)
-	// os.Exit(0)
+	debugPrint(child, 0)
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
 		l.drawables = child.PaintTree(l.drawables)
@@ -92,7 +91,12 @@ func getLayoutMode(node *model.Node) LayoutMode {
 	return Block
 }
 
+var debugPrinted = false
+
 func debugPrint(layout Layout, indent int) {
+	if debugPrinted {
+		return
+	}
 	switch v := layout.(type) {
 	case *BlockLayout:
 		name := "Block"
@@ -127,5 +131,8 @@ func debugPrint(layout Layout, indent int) {
 		for _, child := range v.children {
 			debugPrint(child, indent+1)
 		}
+	}
+	if indent == 0 {
+		debugPrinted = true
 	}
 }
