@@ -117,6 +117,8 @@ func debugPrint(layout Layout, indent int) {
 			" y=" + strconv.Itoa(int(v.prop.y)) +
 			" w=" + strconv.Itoa(int(v.prop.width)) +
 			" h=" + strconv.Itoa(int(v.prop.height)))
+	case *InlineContext:
+		println(strings.Repeat("  ", indent) + "[InlineContext]")
 	}
 	switch v := layout.(type) {
 	case *BlockLayout:
@@ -128,6 +130,10 @@ func debugPrint(layout Layout, indent int) {
 			debugPrint(child, indent+1)
 		}
 	case *TextLayout:
+		for _, child := range v.children {
+			debugPrint(child, indent+1)
+		}
+	case *InlineContext:
 		for _, child := range v.children {
 			debugPrint(child, indent+1)
 		}

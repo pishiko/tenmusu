@@ -84,7 +84,6 @@ func (l *TextLayout) PaintTree(drawables []Drawable) []Drawable {
 }
 
 type LineLayout struct {
-	node     *model.Node
 	parent   Layout
 	previous Layout
 	children []*TextLayout
