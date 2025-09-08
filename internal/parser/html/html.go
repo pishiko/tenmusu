@@ -28,12 +28,26 @@ func (p *Parser) parse() {
 	for _, char := range p.body {
 		switch char {
 		case '<':
+			if isInTag {
+				buf += string(char)
+				continue
+			}
 			isInTag = true
 			if buf != "" {
 				p.addText(buf)
 				buf = ""
 			}
 		case '>':
+			if isInTag && strings.HasPrefix(buf, "!--") {
+				if strings.HasSuffix(buf, "--") {
+					isInTag = false
+					buf = ""
+					continue
+				} else {
+					buf += string(char)
+					continue
+				}
+			}
 			isInTag = false
 			p.addElement(buf)
 			buf = ""
@@ -87,9 +101,6 @@ func (p *Parser) addElement(text string) {
 			panic("Unmatched closing tag: " + name)
 		}
 	} else {
-		if name[0] == '!' {
-			return
-		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, &model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs})
