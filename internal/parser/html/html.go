@@ -13,13 +13,14 @@ type Parser struct {
 	node       *model.Node
 }
 
-func Parse(body string) *model.Node {
+func Parse(body string) (*model.Node, MetaInfo) {
 	parser := &Parser{
 		body:       body,
 		unfinished: util.Stack[*model.Node]{},
 	}
 	parser.parse()
-	return parser.node
+	meta := afterParse(parser.node)
+	return parser.node, meta
 }
 
 func (p *Parser) parse() {
@@ -69,20 +70,43 @@ func (p *Parser) addElement(text string) {
 	if text == "" {
 		return
 	}
-	parts := strings.Split(strings.ReplaceAll(text, "\n", " "), " ")
+	parts := strings.SplitN(strings.ReplaceAll(text, "\n", " "), " ", 2)
 	name := parts[0]
 
-	// attr TODO FIX
 	attrs := make(map[string]string)
-	for _, part := range parts[1:] {
-		if strings.Contains(part, "=") {
-			attrParts := strings.SplitN(part, "=", 2)
-			key := strings.TrimSpace(attrParts[0])
-			value := strings.TrimSpace(attrParts[1])
-			if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
-				value = value[1 : len(value)-1]
+	buf := ""
+	currentKey := ""
+	isInQuote := false
+
+	// attr parser
+	if len(parts) > 1 {
+		for _, c := range parts[1] {
+			switch c {
+			case ' ':
+				if isInQuote {
+					buf += string(c)
+				} else {
+					if currentKey != "" {
+						attrs[currentKey] = buf
+						currentKey = ""
+						buf = ""
+					}
+				}
+			case '=':
+				if isInQuote {
+					buf += string(c)
+				} else {
+					currentKey = strings.TrimSpace(buf)
+					buf = ""
+				}
+			case '"':
+				isInQuote = !isInQuote
+			default:
+				buf += string(c)
 			}
-			attrs[key] = value
+			if currentKey != "" {
+				attrs[currentKey] = buf
+			}
 		}
 	}
 
