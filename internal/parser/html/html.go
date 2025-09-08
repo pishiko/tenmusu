@@ -13,7 +13,7 @@ type Parser struct {
 	node       *model.Node
 }
 
-func Parse(body string) (*model.Node, MetaInfo) {
+func Parse(body string) (*model.Node, model.MetaInfo) {
 	parser := &Parser{
 		body:       body,
 		unfinished: util.Stack[*model.Node]{},
