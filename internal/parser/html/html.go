@@ -88,18 +88,21 @@ func (p *Parser) addElement(text string) {
 
 	if name[0] == '/' {
 		name = name[1:]
-		if node := p.unfinished.Pop(); node != nil {
-			if node.Value != name {
-				println("Mismatched closing tag: " + name + " for " + node.Value)
+		for node := p.unfinished.Pop(); ; node = p.unfinished.Pop() {
+			if node == nil {
+				panic("Unmatched closing tag: " + name)
 			}
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, node)
 			} else {
 				p.node = node
 			}
-		} else {
-			panic("Unmatched closing tag: " + name)
+			if node.Value == name {
+				break
+			}
+			println("Mismatched closing tag: " + name + " for " + node.Value)
 		}
+
 	} else {
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
