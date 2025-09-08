@@ -113,11 +113,26 @@ func (p *Parser) addText(text string) {
 	if text == "" {
 		return
 	}
+	text = replaceCharReference(text)
 	if parent := p.unfinished.Peek(); parent != nil {
 		parent.Children = append(parent.Children, &model.Node{Type: model.Text, Value: text, Parent: parent})
 	} else {
 		p.node = &model.Node{Type: model.Text, Value: text}
 	}
+}
+
+func replaceCharReference(text string) string {
+	var characterReferences = map[string]string{
+		"&lt;":   "<",
+		"&gt;":   ">",
+		"&amp;":  "&",
+		"&quot;": "\"",
+		"&apos;": "'",
+	}
+	for k, v := range characterReferences {
+		text = strings.ReplaceAll(text, k, v)
+	}
+	return text
 }
 
 func isSelefClosingTag(tag string) bool {
