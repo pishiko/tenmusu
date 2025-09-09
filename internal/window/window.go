@@ -12,10 +12,11 @@ import (
 )
 
 type Window struct {
-	node    *model.Node
-	scrollY int
-	clicked bool
-	cursor  struct {
+	node        *model.Node
+	printLayout bool
+	scrollY     int
+	clicked     bool
+	cursor      struct {
 		x, y int
 	}
 }
@@ -41,7 +42,7 @@ func (b *Window) Draw(screen *ebiten.Image) {
 	screen.Fill(color.White)
 	ebitenutil.DebugPrint(screen, "FPS: "+fmt.Sprintf("%.2f", ebiten.ActualFPS()))
 
-	l := layout.NewDocumentLayout(b.node, screen.Bounds())
+	l := layout.NewDocumentLayout(b.node, screen.Bounds(), b.printLayout)
 	drawables := l.Layout()
 	for _, drawable := range drawables {
 		drawable.Draw(screen, float64(b.scrollY))
@@ -52,18 +53,19 @@ func (b *Window) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
 
-func NewWindow(node *model.Node) *Window {
+func NewWindow(node *model.Node, printLayout bool) *Window {
 	return &Window{
-		node:    node,
-		scrollY: 0,
+		node:        node,
+		printLayout: printLayout,
+		scrollY:     0,
 	}
 }
 
-func Open(node *model.Node) {
+func Open(node *model.Node, printLayout bool) {
 	ebiten.SetWindowSize(800, 600)
 	ebiten.SetWindowTitle("tenmusu")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	if err := ebiten.RunGame(NewWindow(node)); err != nil {
+	if err := ebiten.RunGame(NewWindow(node, printLayout)); err != nil {
 		panic(err)
 	}
 	println("Exiting...")

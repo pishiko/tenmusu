@@ -16,17 +16,19 @@ const (
 )
 
 type DocumentLayout struct {
-	node       *model.Node
-	screenRect image.Rectangle
-	children   []Layout
-	drawables  []Drawable
+	printLayout bool
+	node        *model.Node
+	screenRect  image.Rectangle
+	children    []Layout
+	drawables   []Drawable
 }
 
-func NewDocumentLayout(node *model.Node, screenRect image.Rectangle) *DocumentLayout {
+func NewDocumentLayout(node *model.Node, screenRect image.Rectangle, printLayout bool) *DocumentLayout {
 	return &DocumentLayout{
-		node:       node,
-		screenRect: screenRect,
-		drawables:  []Drawable{},
+		printLayout: printLayout,
+		node:        node,
+		screenRect:  screenRect,
+		drawables:   []Drawable{},
 	}
 }
 
@@ -47,7 +49,9 @@ func (l *DocumentLayout) Layout() []Drawable {
 	}
 	l.children = append(l.children, child)
 	child.Layout()
-	debugPrint(child, 0)
+	if l.printLayout {
+		debugPrint(child, 0)
+	}
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
 		l.drawables = child.PaintTree(l.drawables)
