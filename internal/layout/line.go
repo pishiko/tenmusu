@@ -15,7 +15,6 @@ type TextLayout struct {
 	node     *model.Node
 	parent   Layout
 	previous *TextLayout
-	children []Layout
 	prop     LayoutProperty
 
 	word   string
@@ -24,35 +23,20 @@ type TextLayout struct {
 	style  string
 }
 
+func NewTextLayout(node *model.Node, word string) *TextLayout {
+	t := &TextLayout{
+		node: node,
+		word: word,
+	}
+	t.calcWH()
+	return t
+}
+
 func (l *TextLayout) Layout() {
 	l.prop.x = l.parent.Prop().x
 
-	l.weight, _ = l.node.Style["font-weight"]
-	l.style, _ = l.node.Style["font-style"]
-
-	fs, _ := l.node.Style["font-size"]
-	fspx, _ := strings.CutSuffix(fs, "px")
-	fspxInt, _ := strconv.Atoi(fspx)
-	size := float64(fspxInt)
-
-	source := fontSource.normal
-	if l.weight == "bold" {
-		source = fontSource.bold
-	}
-	l.font = &text.GoTextFace{
-		Source:    source,
-		Direction: text.DirectionLeftToRight,
-		Size:      size,
-		Language:  language.Japanese,
-	}
-	w, h := text.Measure(l.word, l.font, l.font.Metrics().HLineGap)
-	l.prop.width = float64(w)
-	l.prop.height = float64(h)
-
 	if l.previous != nil {
-		preFont := l.previous.font
-		space, _ := text.Measure(" ", preFont, preFont.Metrics().HLineGap)
-		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + float64(space)
+		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + l.previous.SpaceWidth()
 	}
 
 }
@@ -79,10 +63,36 @@ func (l *TextLayout) Paint() []Drawable {
 
 func (l *TextLayout) PaintTree(drawables []Drawable) []Drawable {
 	drawables = append(drawables, l.Paint()...)
-	for _, child := range l.children {
-		drawables = child.PaintTree(drawables)
-	}
 	return drawables
+}
+
+func (l *TextLayout) calcWH() {
+	l.weight, _ = l.node.Style["font-weight"]
+	l.style, _ = l.node.Style["font-style"]
+
+	fs, _ := l.node.Style["font-size"]
+	fspx, _ := strings.CutSuffix(fs, "px")
+	fspxInt, _ := strconv.Atoi(fspx)
+	size := float64(fspxInt)
+
+	source := fontSource.normal
+	if l.weight == "bold" {
+		source = fontSource.bold
+	}
+	l.font = &text.GoTextFace{
+		Source:    source,
+		Direction: text.DirectionLeftToRight,
+		Size:      size,
+		Language:  language.Japanese,
+	}
+	w, h := text.Measure(l.word, l.font, l.font.Metrics().HLineGap)
+	l.prop.width = float64(w)
+	l.prop.height = float64(h)
+}
+
+func (l *TextLayout) SpaceWidth() float64 {
+	space, _ := text.Measure(" ", l.font, l.font.Metrics().HLineGap)
+	return space
 }
 
 type LineLayout struct {
@@ -145,4 +155,9 @@ func (l *LineLayout) PaintTree(drawables []Drawable) []Drawable {
 		drawables = child.PaintTree(drawables)
 	}
 	return drawables
+}
+
+func (l *LineLayout) GetMinMaxWidth() (float64, float64) {
+	panic("not implemented")
+	return -1, -1
 }

@@ -15,7 +15,6 @@ type BlockLayout struct {
 
 	cursorX   float64
 	weight    string
-	size      float64
 	drawables []TextDrawable
 }
 
@@ -58,50 +57,7 @@ func (l *BlockLayout) Layout() {
 		l.prop.y = l.parent.Prop().y
 	}
 
-	inlineContext := (*InlineContext)(nil)
-	previous := (Layout)(nil)
-	for _, child := range l.node.Children {
-		switch getLayoutMode(child) {
-		case Block:
-			if inlineContext != nil {
-				inlineContext = nil
-			}
-			var next *BlockLayout
-			if previous != nil {
-				next = &BlockLayout{
-					node:     child,
-					parent:   l,
-					previous: previous,
-					children: []Layout{},
-				}
-			} else {
-				next = &BlockLayout{
-					node:     child,
-					parent:   l,
-					children: []Layout{},
-				}
-			}
-			l.children = append(l.children, next)
-			previous = next
-		case Inline:
-			if inlineContext == nil {
-				inlineContext = &InlineContext{
-					parent:      l,
-					previous:    previous,
-					children:    []*LineLayout{},
-					inlineItems: []*InlineLayout{},
-				}
-				l.children = append(l.children, inlineContext)
-				previous = inlineContext
-			}
-			inline := &InlineLayout{
-				parent:   l,
-				node:     child,
-				children: []*TextLayout{},
-			}
-			inlineContext.inlineItems = append(inlineContext.inlineItems, inline)
-		}
-	}
+	l.children = createLayoutFromNodes(l.node.Children, l)
 
 	for _, child := range l.children {
 		child.Layout()
@@ -123,6 +79,62 @@ func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
 	return drawables
 }
 
+func (l *BlockLayout) GetMinMaxWidth() (float64, float64) {
+	panic("not implemented")
+	return -1, -1
+}
+
 func (l *BlockLayout) layoutMode() LayoutMode {
 	return getLayoutMode(l.node)
+}
+
+func createLayoutFromNodes(nodes []*model.Node, parent Layout) []Layout {
+	layouts := []Layout{}
+
+	inlineContext := (*InlineContext)(nil)
+	previous := (Layout)(nil)
+	for _, child := range nodes {
+		switch getLayoutMode(child) {
+		case Block:
+			if inlineContext != nil {
+				inlineContext = nil
+			}
+			var next Layout
+			switch child.Value {
+			case "table":
+				next = &TableLayout{
+					node:     child,
+					parent:   parent,
+					previous: previous,
+				}
+			default:
+				next = &BlockLayout{
+					node:     child,
+					parent:   parent,
+					previous: previous,
+					children: []Layout{},
+				}
+			}
+			layouts = append(layouts, next)
+			previous = next
+		case Inline:
+			if inlineContext == nil {
+				inlineContext = &InlineContext{
+					parent:      parent,
+					previous:    previous,
+					children:    []*LineLayout{},
+					inlineItems: []*InlineLayout{},
+				}
+				layouts = append(layouts, inlineContext)
+				previous = inlineContext
+			}
+			inline := &InlineLayout{
+				parent:   parent,
+				node:     child,
+				children: []*TextLayout{},
+			}
+			inlineContext.inlineItems = append(inlineContext.inlineItems, inline)
+		}
+	}
+	return layouts
 }

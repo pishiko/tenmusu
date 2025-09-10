@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"unicode"
@@ -8,7 +9,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/pishiko/tenmusu/internal/parser/css"
 	"github.com/pishiko/tenmusu/internal/parser/model"
-	"golang.org/x/text/language"
 )
 
 func NewInlineContext(inlineItems []*InlineLayout, parent Layout, previous Layout) *InlineContext {
@@ -80,6 +80,19 @@ func (l *InlineContext) PaintTree(drawables []Drawable) []Drawable {
 	return drawables
 }
 
+func (l *InlineContext) GetMinMaxWidth() (float64, float64) {
+	minWidth := 0.0
+	maxWidth := 0.0
+	for i, child := range l.textItems {
+		minWidth = math.Max(minWidth, child.Prop().width)
+		maxWidth += child.Prop().width
+		if i < len(l.children)-1 {
+			maxWidth += child.SpaceWidth()
+		}
+	}
+	return minWidth, maxWidth
+}
+
 func (l *InlineContext) word() {
 	for _, txt := range l.textItems {
 		// 右端まで言ったら改行
@@ -108,6 +121,10 @@ func (l *InlineContext) newLine() {
 	var newLine *LineLayout
 	if len(l.children) > 0 {
 		lastLine := l.children[len(l.children)-1]
+		if len(lastLine.children) == 0 {
+			// どうやっても収まらない場合ここに到達 TODO FIX
+			return
+		}
 		newLine = &LineLayout{
 			parent:   l,
 			previous: lastLine,
@@ -123,7 +140,7 @@ func (l *InlineContext) newLine() {
 type InlineLayout struct {
 	node     *model.Node
 	prop     LayoutProperty
-	parent   *BlockLayout
+	parent   Layout
 	children []*TextLayout
 
 	size   float64
@@ -145,19 +162,19 @@ func (l *InlineLayout) Paint() []Drawable {
 	prevTop := l.children[0].prop.y
 	if bgcolor != "transparent" {
 		for _, child := range l.children {
-			if child.prop.y > prevTop {
-				prevRight = child.prop.x
+			if child.Prop().y > prevTop {
+				prevRight = child.Prop().x
 			}
-			right, bottom := child.prop.x+child.prop.width, child.prop.y+child.prop.height
+			right, bottom := child.Prop().x+child.Prop().width, child.Prop().y+child.Prop().height
 			ret = append(ret, &RectDrawable{
-				top:    child.prop.y,
+				top:    child.Prop().y,
 				left:   prevRight,
 				bottom: bottom,
 				right:  right,
 				color:  css.RGBA(bgcolor),
 			})
 			prevRight = right
-			prevTop = child.prop.y
+			prevTop = child.Prop().y
 		}
 	}
 	return ret
@@ -186,7 +203,7 @@ func (l *InlineLayout) recurse(node *model.Node) {
 }
 
 func (l *InlineLayout) word(node *model.Node) {
-	l.size = l.parent.size
+	l.size = l.parent.Prop().size
 	if fs, ok := node.Style["font-size"]; ok {
 		fspx, _ := strings.CutSuffix(fs, "px")
 		fspxInt, _ := strconv.Atoi(fspx)
@@ -197,24 +214,7 @@ func (l *InlineLayout) word(node *model.Node) {
 		if word == "" {
 			continue // Skip empty words
 		}
-		source := fontSource.normal
-		if l.weight == "bold" {
-			source = fontSource.bold
-		}
-		f := &text.GoTextFace{
-			Source:    source,
-			Direction: text.DirectionLeftToRight,
-			Size:      l.size,
-			Language:  language.Japanese,
-		}
-		w, _ := text.Measure(word, f, f.Metrics().HLineGap)
-
-		txt := &TextLayout{
-			node: node,
-			word: word,
-			font: f,
-		}
-		txt.prop.width = float64(w)
+		txt := NewTextLayout(node, word)
 		l.children = append(l.children, txt)
 	}
 }
