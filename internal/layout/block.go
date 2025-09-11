@@ -80,8 +80,14 @@ func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
 }
 
 func (l *BlockLayout) GetMinMaxWidth() (float64, float64) {
-	panic("not implemented")
-	return -1, -1
+	mnw := 0.0
+	mxw := 0.0
+	for _, child := range l.children {
+		mn, mx := child.GetMinMaxWidth()
+		mnw = max(mnw, mn)
+		mxw = max(mxw, mx)
+	}
+	return mnw, mxw
 }
 
 func (l *BlockLayout) layoutMode() LayoutMode {

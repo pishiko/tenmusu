@@ -250,7 +250,6 @@ func (l *TableCellLayout) Init() {
 	l.children = createLayoutFromNodes(l.node.Children, l)
 	for _, l := range l.children {
 		l.Layout()
-		// lw := l.Prop().width
 	}
 }
 
@@ -265,12 +264,9 @@ func (l *TableCellLayout) Layout() {
 	for _, child := range l.children {
 		child.Layout()
 	}
-	// Height
 	height := 0.0
 	for _, child := range l.children {
-		if child.Prop().height > height {
-			height = child.Prop().height
-		}
+		height += child.Prop().height
 	}
 	l.prop.height = height
 }
