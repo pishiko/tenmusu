@@ -2,6 +2,7 @@ package layout
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/pishiko/tenmusu/internal/parser/model"
 )
@@ -228,14 +229,53 @@ func (l *TableRowLayout) Init() {
 	}
 
 	previous := (*TableCellLayout)(nil)
+	i := 0
 	for _, child := range l.node.Children {
 		if child.Type == model.Element {
 			switch child.Value {
 			case "td", "th":
+				if l.previous != nil {
+					for {
+						if i >= len(l.previous.cells) {
+							break
+						}
+						aboveCell := l.previous.cells[i]
+						if aboveCell.rowSpan <= 1 {
+							break
+						}
+						// 上のセルが rowspan>1 している場合、ダミーセルを挿入して位置を合わせる
+						joinedRoot := aboveCell
+						for joinedRoot.joinedRoot != nil {
+							joinedRoot = joinedRoot.joinedRoot
+						}
+						dummy := &TableCellLayout{
+							node: &model.Node{
+								Type:     model.Element,
+								Value:    "td",
+								Children: []*model.Node{},
+							},
+							parent:     l,
+							previous:   previous,
+							joinedRoot: joinedRoot,
+							rowSpan:    aboveCell.rowSpan - 1,
+						}
+						l.cells = append(l.cells, dummy)
+						previous = dummy
+						i++
+					}
+				}
+				rowSpan := 1
+				if a, ok := child.Attrs["rowspan"]; ok {
+					n, err := strconv.Atoi(a)
+					if err == nil {
+						rowSpan = n
+					}
+				}
 				cell := &TableCellLayout{
 					node:     child,
 					parent:   l,
 					previous: previous,
+					rowSpan:  rowSpan,
 				}
 				l.cells = append(l.cells, cell)
 				previous = cell
@@ -244,6 +284,7 @@ func (l *TableRowLayout) Init() {
 				panic("unsupported table row child: " + child.Value)
 			}
 		}
+		i++
 	}
 	l.initialized = true
 }
@@ -262,8 +303,15 @@ func (l *TableRowLayout) Layout(widths []float64) {
 	}
 	height := 0.0
 	for _, cell := range l.cells {
-		if cell.prop.height > height {
-			height = cell.prop.height
+		currentHeight := cell.prop.height
+		// 自身がrowspan>1の場合
+		if cell.joinedRoot != nil {
+			currentHeight = cell.joinedRoot.prop.height / float64(cell.joinedRoot.rowSpan)
+		} else if cell.rowSpan > 1 {
+			currentHeight = cell.prop.height / float64(cell.rowSpan)
+		}
+		if currentHeight > height {
+			height = currentHeight
 		}
 	}
 	l.prop.height = height
@@ -299,6 +347,12 @@ type TableCellLayout struct {
 	previous *TableCellLayout
 	prop     LayoutProperty
 	children []Layout
+
+	joinedRoot *TableCellLayout
+
+	rowSpan int
+
+	initialized bool
 }
 
 func (l *TableCellLayout) Init() {
@@ -313,19 +367,13 @@ func (l *TableCellLayout) Init() {
 	for _, l := range l.children {
 		l.Layout()
 	}
+	l.initialized = true
 }
 
 func (l *TableCellLayout) Layout() {
 	l.prop.y = l.parent.prop.y
-	if l.previous != nil {
-		l.prop.x = l.previous.prop.x + l.previous.prop.width
-	} else {
-		l.prop.x = l.parent.prop.x
-	}
-	l.children = createLayoutFromNodes(l.node.Children, l)
-	for _, child := range l.children {
-		child.Layout()
-	}
+	// TODO FIX
+	l.Init()
 	height := 0.0
 	for _, child := range l.children {
 		height += child.Prop().height
