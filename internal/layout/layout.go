@@ -16,17 +16,19 @@ const (
 )
 
 type DocumentLayout struct {
-	node       *model.Node
-	screenRect image.Rectangle
-	children   []Layout
-	drawables  []Drawable
+	printLayout bool
+	node        *model.Node
+	screenRect  image.Rectangle
+	children    []Layout
+	drawables   []Drawable
 }
 
-func NewDocumentLayout(node *model.Node, screenRect image.Rectangle) *DocumentLayout {
+func NewDocumentLayout(node *model.Node, screenRect image.Rectangle, printLayout bool) *DocumentLayout {
 	return &DocumentLayout{
-		node:       node,
-		screenRect: screenRect,
-		drawables:  []Drawable{},
+		printLayout: printLayout,
+		node:        node,
+		screenRect:  screenRect,
+		drawables:   []Drawable{},
 	}
 }
 
@@ -47,7 +49,9 @@ func (l *DocumentLayout) Layout() []Drawable {
 	}
 	l.children = append(l.children, child)
 	child.Layout()
-	debugPrint(child, 0)
+	if l.printLayout {
+		debugPrint(child, 0)
+	}
 	l.drawables = []Drawable{}
 	for _, child := range l.children {
 		l.drawables = child.PaintTree(l.drawables)
@@ -60,13 +64,14 @@ type LayoutProperty struct {
 	y      float64
 	width  float64
 	height float64
+	size   float64
 }
 
 type Layout interface {
 	Layout()
-	Paint() []Drawable
 	Prop() LayoutProperty
 	PaintTree([]Drawable) []Drawable
+	GetMinMaxWidth() (float64, float64)
 }
 
 func getLayoutMode(node *model.Node) LayoutMode {
@@ -112,13 +117,21 @@ func debugPrint(layout Layout, indent int) {
 			" y=" + strconv.Itoa(int(v.prop.y)) +
 			" w=" + strconv.Itoa(int(v.prop.width)) +
 			" h=" + strconv.Itoa(int(v.prop.height)))
-	case *TextLayout:
-		println(strings.Repeat("  ", indent) + "TextLayout: \"" + v.word + "\" x=" + strconv.Itoa(int(v.prop.x)) +
+	case *InlineContext:
+		println(strings.Repeat("  ", indent) + "[InlineContext]" + " x=" + strconv.Itoa(int(v.prop.x)) +
 			" y=" + strconv.Itoa(int(v.prop.y)) +
 			" w=" + strconv.Itoa(int(v.prop.width)) +
 			" h=" + strconv.Itoa(int(v.prop.height)))
-	case *InlineContext:
-		println(strings.Repeat("  ", indent) + "[InlineContext]")
+	case *TableCellLayout:
+		println(strings.Repeat("  ", indent) + "TableCellLayout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
+			" y=" + strconv.Itoa(int(v.prop.y)) +
+			" w=" + strconv.Itoa(int(v.prop.width)) +
+			" h=" + strconv.Itoa(int(v.prop.height)))
+	case *TableLayout:
+		println(strings.Repeat("  ", indent) + "TableLayout: <" + v.node.Value + "> x=" + strconv.Itoa(int(v.prop.x)) +
+			" y=" + strconv.Itoa(int(v.prop.y)) +
+			" w=" + strconv.Itoa(int(v.prop.width)) +
+			" h=" + strconv.Itoa(int(v.prop.height)))
 	}
 	switch v := layout.(type) {
 	case *BlockLayout:
@@ -127,18 +140,47 @@ func debugPrint(layout Layout, indent int) {
 		}
 	case *LineLayout:
 		for _, child := range v.children {
-			debugPrint(child, indent+1)
+			println(strings.Repeat("  ", indent+1) + "TextLayout: \"" + child.word + "\" x=" + strconv.Itoa(int(child.Prop().x)) +
+				" y=" + strconv.Itoa(int(child.Prop().y)) +
+				" w=" + strconv.Itoa(int(child.Prop().width)) +
+				" h=" + strconv.Itoa(int(child.Prop().height)))
 		}
-	case *TextLayout:
+	case *InlineContext:
 		for _, child := range v.children {
 			debugPrint(child, indent+1)
 		}
-	case *InlineContext:
+	case *TableLayout:
+		if v.body != nil {
+			debugPrintTRG(v.body, indent+1)
+		}
+	case *TableCellLayout:
 		for _, child := range v.children {
 			debugPrint(child, indent+1)
 		}
 	}
 	if indent == 0 {
 		debugPrinted = true
+	}
+}
+
+func debugPrintTRG(layout *TableRowGroupLayout, indent int) {
+
+	println(strings.Repeat("  ", indent) + "TableRowGroupLayout" + "<" + layout.node.Value + ">" + " x=" + strconv.Itoa(int(layout.prop.x)) +
+		" y=" + strconv.Itoa(int(layout.prop.y)) +
+		" w=" + strconv.Itoa(int(layout.prop.width)) +
+		" h=" + strconv.Itoa(int(layout.prop.height)))
+	for _, row := range layout.rows {
+		debugPrintTR(row, indent+1)
+	}
+
+}
+func debugPrintTR(layout *TableRowLayout, indent int) {
+
+	println(strings.Repeat("  ", indent) + "TableRowLayout: <" + layout.node.Value + "> x=" + strconv.Itoa(int(layout.prop.x)) +
+		" y=" + strconv.Itoa(int(layout.prop.y)) +
+		" w=" + strconv.Itoa(int(layout.prop.width)) +
+		" h=" + strconv.Itoa(int(layout.prop.height)))
+	for _, cell := range layout.cells {
+		debugPrint(cell, indent+1)
 	}
 }

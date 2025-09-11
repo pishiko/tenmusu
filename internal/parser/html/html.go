@@ -13,13 +13,14 @@ type Parser struct {
 	node       *model.Node
 }
 
-func Parse(body string) *model.Node {
+func Parse(body string) (*model.Node, model.MetaInfo) {
 	parser := &Parser{
 		body:       body,
 		unfinished: util.Stack[*model.Node]{},
 	}
 	parser.parse()
-	return parser.node
+	meta := afterParse(parser.node)
+	return parser.node, meta
 }
 
 func (p *Parser) parse() {
@@ -28,12 +29,26 @@ func (p *Parser) parse() {
 	for _, char := range p.body {
 		switch char {
 		case '<':
+			if isInTag {
+				buf += string(char)
+				continue
+			}
 			isInTag = true
 			if buf != "" {
 				p.addText(buf)
 				buf = ""
 			}
 		case '>':
+			if isInTag && strings.HasPrefix(buf, "!--") {
+				if strings.HasSuffix(buf, "--") {
+					isInTag = false
+					buf = ""
+					continue
+				} else {
+					buf += string(char)
+					continue
+				}
+			}
 			isInTag = false
 			p.addElement(buf)
 			buf = ""
@@ -55,41 +70,64 @@ func (p *Parser) addElement(text string) {
 	if text == "" {
 		return
 	}
-	parts := strings.Split(strings.ReplaceAll(text, "\n", " "), " ")
+	parts := strings.SplitN(strings.ReplaceAll(text, "\n", " "), " ", 2)
 	name := parts[0]
 
-	// attr TODO FIX
 	attrs := make(map[string]string)
-	for _, part := range parts[1:] {
-		if strings.Contains(part, "=") {
-			attrParts := strings.SplitN(part, "=", 2)
-			key := strings.TrimSpace(attrParts[0])
-			value := strings.TrimSpace(attrParts[1])
-			if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
-				value = value[1 : len(value)-1]
+	buf := ""
+	currentKey := ""
+	isInQuote := false
+
+	// attr parser
+	if len(parts) > 1 {
+		for _, c := range parts[1] {
+			switch c {
+			case ' ':
+				if isInQuote {
+					buf += string(c)
+				} else {
+					if currentKey != "" {
+						attrs[currentKey] = buf
+						currentKey = ""
+						buf = ""
+					}
+				}
+			case '=':
+				if isInQuote {
+					buf += string(c)
+				} else {
+					currentKey = strings.TrimSpace(buf)
+					buf = ""
+				}
+			case '"':
+				isInQuote = !isInQuote
+			default:
+				buf += string(c)
 			}
-			attrs[key] = value
+			if currentKey != "" {
+				attrs[currentKey] = buf
+			}
 		}
 	}
 
 	if name[0] == '/' {
 		name = name[1:]
-		if node := p.unfinished.Pop(); node != nil {
-			if node.Value != name {
-				println("Mismatched closing tag: " + name + " for " + node.Value)
+		for node := p.unfinished.Pop(); ; node = p.unfinished.Pop() {
+			if node == nil {
+				panic("Unmatched closing tag: " + name)
 			}
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, node)
 			} else {
 				p.node = node
 			}
-		} else {
-			panic("Unmatched closing tag: " + name)
+			if node.Value == name {
+				break
+			}
+			println("Mismatched closing tag: " + name + " for " + node.Value)
 		}
+
 	} else {
-		if name[0] == '!' {
-			return
-		}
 		if isSelefClosingTag(name) {
 			if parent := p.unfinished.Peek(); parent != nil {
 				parent.Children = append(parent.Children, &model.Node{Type: model.Element, Value: name, Parent: parent, Attrs: attrs})
@@ -128,6 +166,7 @@ func replaceCharReference(text string) string {
 		"&amp;":  "&",
 		"&quot;": "\"",
 		"&apos;": "'",
+		"&nbsp;": " ",
 	}
 	for k, v := range characterReferences {
 		text = strings.ReplaceAll(text, k, v)
