@@ -235,6 +235,7 @@ func (l *TableRowLayout) Init() {
 			switch child.Value {
 			case "td", "th":
 				if l.previous != nil {
+					// rowspan考慮
 					for {
 						if i >= len(l.previous.cells) {
 							break
@@ -245,8 +246,8 @@ func (l *TableRowLayout) Init() {
 						}
 						// 上のセルが rowspan>1 している場合、ダミーセルを挿入して位置を合わせる
 						joinedRoot := aboveCell
-						for joinedRoot.joinedRoot != nil {
-							joinedRoot = joinedRoot.joinedRoot
+						for joinedRoot.joinedRowRoot != nil {
+							joinedRoot = joinedRoot.joinedRowRoot
 						}
 						dummy := &TableCellLayout{
 							node: &model.Node{
@@ -254,16 +255,18 @@ func (l *TableRowLayout) Init() {
 								Value:    "td",
 								Children: []*model.Node{},
 							},
-							parent:     l,
-							previous:   previous,
-							joinedRoot: joinedRoot,
-							rowSpan:    aboveCell.rowSpan - 1,
+							parent:        l,
+							previous:      previous,
+							joinedRowRoot: joinedRoot,
+							rowSpan:       aboveCell.rowSpan - 1,
 						}
 						l.cells = append(l.cells, dummy)
 						previous = dummy
 						i++
 					}
 				}
+				// colspan考慮
+
 				rowSpan := 1
 				if a, ok := child.Attrs["rowspan"]; ok {
 					n, err := strconv.Atoi(a)
@@ -271,14 +274,42 @@ func (l *TableRowLayout) Init() {
 						rowSpan = n
 					}
 				}
+				colSpan := 1
+				if a, ok := child.Attrs["colspan"]; ok {
+					n, err := strconv.Atoi(a)
+					if err == nil {
+						colSpan = n
+					}
+				}
+
 				cell := &TableCellLayout{
 					node:     child,
 					parent:   l,
 					previous: previous,
 					rowSpan:  rowSpan,
+					colSpan:  colSpan,
 				}
 				l.cells = append(l.cells, cell)
+
 				previous = cell
+				for c := colSpan - 1; c >= 1; c-- {
+					// colspan>1 の場合、ダミーセルを挿入して位置を合わせる
+					dummy := &TableCellLayout{
+						node: &model.Node{
+							Type:     model.Element,
+							Value:    "td",
+							Children: []*model.Node{},
+						},
+						parent:        l,
+						previous:      previous,
+						joinedColRoot: cell,
+						colSpan:       c,
+					}
+					l.cells[len(l.cells)-1].colNext = dummy
+					l.cells = append(l.cells, dummy)
+					previous = dummy
+					i++
+				}
 			default:
 				// TODO support col, colgroup or silently td/th
 				panic("unsupported table row child: " + child.Value)
@@ -299,14 +330,18 @@ func (l *TableRowLayout) Layout(widths []float64) {
 	l.prop.width = l.parent.prop.width
 	for i, cell := range l.cells {
 		cell.prop.width = widths[i]
+	}
+	for _, cell := range l.cells {
 		cell.Layout()
 	}
 	height := 0.0
 	for _, cell := range l.cells {
 		currentHeight := cell.prop.height
+		// rowspan考慮
+		// TODO FIX 均等に分配しているが正確ではない
 		// 自身がrowspan>1の場合
-		if cell.joinedRoot != nil {
-			currentHeight = cell.joinedRoot.prop.height / float64(cell.joinedRoot.rowSpan)
+		if cell.joinedRowRoot != nil {
+			currentHeight = cell.joinedRowRoot.prop.height / float64(cell.joinedRowRoot.rowSpan)
 		} else if cell.rowSpan > 1 {
 			currentHeight = cell.prop.height / float64(cell.rowSpan)
 		}
@@ -348,11 +383,12 @@ type TableCellLayout struct {
 	prop     LayoutProperty
 	children []Layout
 
-	joinedRoot *TableCellLayout
+	joinedRowRoot *TableCellLayout
+	joinedColRoot *TableCellLayout
+	colNext       *TableCellLayout
 
 	rowSpan int
-
-	initialized bool
+	colSpan int
 }
 
 func (l *TableCellLayout) Init() {
@@ -367,11 +403,13 @@ func (l *TableCellLayout) Init() {
 	for _, l := range l.children {
 		l.Layout()
 	}
-	l.initialized = true
 }
 
 func (l *TableCellLayout) Layout() {
 	l.prop.y = l.parent.prop.y
+	for next := l.colNext; next != nil; next = next.colNext {
+		l.prop.width += next.prop.width
+	}
 	// TODO FIX
 	l.Init()
 	height := 0.0
@@ -393,12 +431,23 @@ func (l *TableCellLayout) PaintTree(drawables []Drawable) []Drawable {
 }
 
 func (l *TableCellLayout) GetMinMaxWidth() (float64, float64) {
+	// colspanのdummyのセルの場合均等に返す
+	// TODO FIX 正確には均等ではない
+	if l.joinedColRoot != nil {
+		minWidth, maxWidth := l.joinedColRoot.GetMinMaxWidth()
+		return minWidth / float64(l.joinedColRoot.colSpan), maxWidth / float64(l.joinedColRoot.colSpan)
+	}
 	minWidth := 0.0
 	maxWidth := 0.0
 	for _, child := range l.children {
 		min, max := child.GetMinMaxWidth()
 		minWidth = math.Max(minWidth, min)
 		maxWidth = math.Max(maxWidth, max)
+	}
+	// colspan > 0の場合均等に返す
+	// TODO FIX 正確には均等ではない
+	if l.colSpan > 1 {
+		return minWidth / float64(l.colSpan), maxWidth / float64(l.colSpan)
 	}
 	return minWidth, maxWidth
 }
