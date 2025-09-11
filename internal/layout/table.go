@@ -65,8 +65,7 @@ func (l *TableLayout) PaintTree(drawables []Drawable) []Drawable {
 }
 
 func (l *TableLayout) GetMinMaxWidth() (float64, float64) {
-	panic("not implemented")
-	return -1, -1
+	return l.body.GetMinMaxWidth()
 }
 
 type TableRowGroupLayout struct {
@@ -74,12 +73,11 @@ type TableRowGroupLayout struct {
 	parent *TableLayout
 	rows   []*TableRowLayout
 	prop   LayoutProperty
+
+	initialized bool
 }
 
-func (l *TableRowGroupLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-	l.prop.y = l.parent.Prop().y
-
+func (l *TableRowGroupLayout) Init() {
 	previous := (*TableRowLayout)(nil)
 	for _, child := range l.node.Children {
 		if child.Type == model.Element && child.Value == "tr" {
@@ -92,10 +90,20 @@ func (l *TableRowGroupLayout) Layout() {
 			previous = row
 		}
 	}
+	l.initialized = true
+}
+
+func (l *TableRowGroupLayout) Layout() {
+	l.prop.x = l.parent.Prop().x
+	l.prop.y = l.parent.Prop().y
+
+	if !l.initialized {
+		l.Init()
+	}
 
 	maxss, minss := [][]float64{}, [][]float64{}
 	for _, row := range l.rows {
-		mins, maxs := row.Init()
+		mins, maxs := row.GetMinMaxWidth()
 
 		minss = append(minss, mins)
 		maxss = append(maxss, maxs)
@@ -108,6 +116,7 @@ func (l *TableRowGroupLayout) Layout() {
 
 	rowWidths := []float64{}
 
+	l.prop.width = l.parent.Prop().width
 	if l.prop.width <= minSum {
 		// テーブル幅が最小幅以下なら最小幅に合わせる
 		rowWidths = minWidths
@@ -142,6 +151,20 @@ func (l *TableRowGroupLayout) Layout() {
 		height += row.prop.height
 	}
 	l.prop.height = height
+}
+
+func (l *TableRowGroupLayout) GetMinMaxWidth() (float64, float64) {
+	if !l.initialized {
+		l.Init()
+	}
+	maxss, minss := [][]float64{}, [][]float64{}
+	for _, row := range l.rows {
+		mins, maxs := row.GetMinMaxWidth()
+
+		minss = append(minss, mins)
+		maxss = append(maxss, maxs)
+	}
+	return sumSlices(maxSlices(minss...)), sumSlices(maxSlices(maxss...))
 }
 
 func (l *TableRowGroupLayout) PaintTree(drawables []Drawable) []Drawable {
@@ -192,9 +215,11 @@ type TableRowLayout struct {
 	previous *TableRowLayout
 	cells    []*TableCellLayout
 	prop     LayoutProperty
+
+	initialized bool
 }
 
-func (l *TableRowLayout) Init() (minWidths []float64, maxWidths []float64) {
+func (l *TableRowLayout) Init() {
 	l.prop.x = l.parent.prop.x
 	if l.previous != nil {
 		l.prop.y = l.previous.prop.y + l.previous.prop.height
@@ -220,17 +245,7 @@ func (l *TableRowLayout) Init() (minWidths []float64, maxWidths []float64) {
 			}
 		}
 	}
-	maxWidths = make([]float64, len(l.cells))
-	minWidths = make([]float64, len(l.cells))
-
-	for i, cell := range l.cells {
-		cell.Init()
-		minW, maxW := cell.GetMinMaxWidth()
-		maxWidths[i] = maxW
-		minWidths[i] = minW
-	}
-
-	return minWidths, maxWidths
+	l.initialized = true
 }
 
 func (l *TableRowLayout) Layout(widths []float64) {
@@ -252,6 +267,23 @@ func (l *TableRowLayout) Layout(widths []float64) {
 		}
 	}
 	l.prop.height = height
+}
+
+func (l *TableRowLayout) GetMinMaxWidth() (minWidths []float64, maxWidths []float64) {
+	if !l.initialized {
+		l.Init()
+	}
+	maxWidths = make([]float64, len(l.cells))
+	minWidths = make([]float64, len(l.cells))
+
+	for i, cell := range l.cells {
+		cell.Init()
+		minW, maxW := cell.GetMinMaxWidth()
+		maxWidths[i] = maxW
+		minWidths[i] = minW
+	}
+
+	return minWidths, maxWidths
 }
 
 func (l *TableRowLayout) PaintTree(drawables []Drawable) []Drawable {
