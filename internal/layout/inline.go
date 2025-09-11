@@ -6,7 +6,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/pishiko/tenmusu/internal/parser/css"
 	"github.com/pishiko/tenmusu/internal/parser/model"
 )
@@ -111,8 +110,7 @@ func (l *InlineContext) word() {
 
 		// Update x position for the next character
 		l.cursorX += txt.prop.width
-		spaceWidth, _ := text.Measure(" ", txt.font, txt.font.Metrics().HLineGap)
-		l.cursorX += spaceWidth
+		l.cursorX += txt.SpaceWidth()
 	}
 }
 
