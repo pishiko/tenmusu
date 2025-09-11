@@ -407,10 +407,11 @@ func (l *TableCellLayout) Init() {
 
 func (l *TableCellLayout) Layout() {
 	l.prop.y = l.parent.prop.y
+	// TODO FIX colspan考慮, 均等に分配しているが正確ではない
 	for next := l.colNext; next != nil; next = next.colNext {
 		l.prop.width += next.prop.width
 	}
-	// TODO FIX
+	// TODO FIX　Initの重複呼び出し
 	l.Init()
 	height := 0.0
 	for _, child := range l.children {

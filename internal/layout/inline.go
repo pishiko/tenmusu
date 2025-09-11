@@ -221,6 +221,7 @@ func (l *InlineLayout) word(node *model.Node) {
 
 func split(s string) []string {
 	var result []string
+	isBeforeNonASCII := false
 	current := ""
 	for _, r := range s {
 		if unicode.IsSpace(r) {
@@ -228,14 +229,18 @@ func split(s string) []string {
 				result = append(result, current)
 				current = ""
 			}
+			isBeforeNonASCII = false
 		} else if !isASCIIRune(r) {
-			if current != "" {
-				result = append(result, current)
+			if isBeforeNonASCII {
+				result = append(result, current+string(r))
 				current = ""
+			} else {
+				current += string(r)
 			}
-			result = append(result, string(r))
+			isBeforeNonASCII = true
 		} else {
 			current += string(r)
+			isBeforeNonASCII = false
 		}
 	}
 	if current != "" {

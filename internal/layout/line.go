@@ -91,7 +91,8 @@ func (l *TextLayout) calcWH() {
 }
 
 func (l *TextLayout) SpaceWidth() float64 {
-	if len([]rune(l.word)) == 1 && !isASCIIRune([]rune(l.word)[0]) {
+	rs := []rune(l.word)
+	if !isASCIIRune(rs[len(rs)-1]) {
 		return 0
 	}
 	space, _ := text.Measure(" ", l.font, l.font.Metrics().HLineGap)
