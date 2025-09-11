@@ -166,6 +166,7 @@ func replaceCharReference(text string) string {
 		"&amp;":  "&",
 		"&quot;": "\"",
 		"&apos;": "'",
+		"&nbsp;": " ",
 	}
 	for k, v := range characterReferences {
 		text = strings.ReplaceAll(text, k, v)
