@@ -210,11 +210,40 @@ func (l *InlineLayout) word(node *model.Node) {
 		l.size = float64(fspxInt)
 	}
 
-	for _, word := range strings.FieldsFunc(node.Value, unicode.IsSpace) {
+	for _, word := range split(node.Value) {
 		if word == "" {
 			continue // Skip empty words
 		}
 		txt := NewTextLayout(node, word)
 		l.children = append(l.children, txt)
 	}
+}
+
+func split(s string) []string {
+	var result []string
+	current := ""
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			if current != "" {
+				result = append(result, current)
+				current = ""
+			}
+		} else if !isASCIIRune(r) {
+			if current != "" {
+				result = append(result, current)
+				current = ""
+			}
+			result = append(result, string(r))
+		} else {
+			current += string(r)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
+func isASCIIRune(r rune) bool {
+	return r <= unicode.MaxASCII
 }
