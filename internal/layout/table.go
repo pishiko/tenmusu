@@ -101,11 +101,41 @@ func (l *TableRowGroupLayout) Layout() {
 		maxss = append(maxss, maxs)
 	}
 	maxWidths := maxSlices(maxss...)
+	minWidths := maxSlices(minss...)
+	maxSum := sumSlices(maxWidths)
+	minSum := sumSlices(minWidths)
 	l.prop.width = sumSlices(maxWidths)
 
-	// TODO ちゃんと計算する、Blockにも対応したい
+	rowWidths := []float64{}
+
+	if l.prop.width <= minSum {
+		// テーブル幅が最小幅以下なら最小幅に合わせる
+		rowWidths = minWidths
+	} else if l.prop.width >= maxSum {
+		// テーブル幅が最大幅以上なら最大幅+余白を均等割り
+		rowWidths = maxWidths
+		extra := (l.prop.width - maxSum) / float64(len(maxWidths))
+		for i := range rowWidths {
+			rowWidths[i] += extra
+		}
+	} else {
+		// 最小幅を確保して、残りを伸びやすさで分配
+		rowWidths = minWidths
+		flexibilities := make([]float64, len(maxWidths))
+		for i := range flexibilities {
+			flexibilities[i] = (maxWidths[i] - minWidths[i])
+		}
+		flexSum := sumSlices(flexibilities)
+		extra := l.prop.width - minSum
+		for i := range rowWidths {
+			if flexSum > 0 {
+				rowWidths[i] += extra * (flexibilities[i] / flexSum)
+			}
+		}
+	}
+
 	for _, row := range l.rows {
-		row.Layout(maxWidths)
+		row.Layout(rowWidths)
 	}
 	height := 0.0
 	for _, row := range l.rows {
