@@ -48,7 +48,7 @@ func (l *DocumentLayout) Layout() []Drawable {
 		children: []Layout{},
 	}
 	l.children = append(l.children, child)
-	child.Layout()
+	child.Layout(0, 0, float64(l.screenRect.Dx()))
 	if l.printLayout {
 		debugPrint(child, 0)
 	}
@@ -64,12 +64,17 @@ type LayoutProperty struct {
 	y      float64
 	width  float64
 	height float64
-	size   float64
+}
+
+type Rect struct {
+	x      float64
+	y      float64
+	width  float64
+	height float64
 }
 
 type Layout interface {
-	Layout()
-	Prop() LayoutProperty
+	Layout(x float64, y float64, width float64) Rect
 	PaintTree([]Drawable) []Drawable
 	GetMinMaxWidth() (float64, float64)
 }

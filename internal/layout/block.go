@@ -48,27 +48,34 @@ func (l *BlockLayout) Paint() []Drawable {
 	return ret
 }
 
-func (l *BlockLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-	l.prop.width = l.parent.Prop().width
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
+func (l *BlockLayout) Layout(x float64, y float64, width float64) Rect {
+	l.prop.x = x
+	l.prop.width = width
+	l.prop.y = y
 
 	l.children = createLayoutFromNodes(l.node.Children, l)
-
-	for _, child := range l.children {
-		child.Layout()
+	childRects := []Rect{}
+	for i, child := range l.children {
+		cy := l.prop.y
+		if i > 0 {
+			cy = childRects[i-1].y + childRects[i-1].height
+		}
+		rect := child.Layout(l.prop.x, cy, l.prop.width)
+		childRects = append(childRects, rect)
 	}
 
 	// Height
 	height := 0.0
-	for _, child := range l.children {
-		height += child.Prop().height
+	for _, cr := range childRects {
+		height += cr.height
 	}
 	l.prop.height = height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {

@@ -2,8 +2,6 @@ package layout
 
 import (
 	"math"
-	"strconv"
-	"strings"
 	"unicode"
 
 	"github.com/pishiko/tenmusu/internal/parser/css"
@@ -43,14 +41,10 @@ func (l *InlineContext) Paint() []Drawable {
 	return ret
 }
 
-func (l *InlineContext) Layout() {
-	l.prop.x = l.parent.Prop().x
-	l.prop.width = l.parent.Prop().width
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
+func (l *InlineContext) Layout(x float64, y float64, width float64) Rect {
+	l.prop.x = x
+	l.prop.y = y
+	l.prop.width = width
 
 	l.newLine()
 
@@ -59,8 +53,14 @@ func (l *InlineContext) Layout() {
 	}
 	l.word()
 
-	for _, child := range l.children {
-		child.Layout()
+	prevRect := Rect{}
+	for i, child := range l.children {
+		cy := l.prop.y
+		if i > 0 {
+			cy = prevRect.y + prevRect.height
+		}
+		rect := child.Layout(l.prop.x, cy, l.prop.width)
+		prevRect = rect
 	}
 
 	// Height
@@ -69,6 +69,12 @@ func (l *InlineContext) Layout() {
 		height += child.Prop().height
 	}
 	l.prop.height = height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l *InlineContext) PaintTree(drawables []Drawable) []Drawable {
@@ -141,7 +147,6 @@ type InlineLayout struct {
 	parent   Layout
 	children []*TextLayout
 
-	size   float64
 	weight string
 }
 
@@ -201,13 +206,6 @@ func (l *InlineLayout) recurse(node *model.Node) {
 }
 
 func (l *InlineLayout) word(node *model.Node) {
-	l.size = l.parent.Prop().size
-	if fs, ok := node.Style["font-size"]; ok {
-		fspx, _ := strings.CutSuffix(fs, "px")
-		fspxInt, _ := strconv.Atoi(fspx)
-		l.size = float64(fspxInt)
-	}
-
 	for _, word := range split(node.Value) {
 		if word == "" {
 			continue // Skip empty words

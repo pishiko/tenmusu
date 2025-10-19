@@ -32,8 +32,8 @@ func NewTextLayout(node *model.Node, word string) *TextLayout {
 	return t
 }
 
-func (l *TextLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
+func (l *TextLayout) Layout(x float64) {
+	l.prop.x = x
 
 	if l.previous != nil {
 		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + l.previous.SpaceWidth()
@@ -107,19 +107,14 @@ type LineLayout struct {
 	prop LayoutProperty
 }
 
-func (l *LineLayout) Layout() {
+func (l *LineLayout) Layout(x float64, y float64, width float64) Rect {
 
-	l.prop.width = l.parent.Prop().width
-	l.prop.x = l.parent.Prop().x
-
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
+	l.prop.width = width
+	l.prop.x = x
+	l.prop.y = y
 
 	for _, child := range l.children {
-		child.Layout()
+		child.Layout(l.prop.x)
 	}
 
 	maxAscent := 0.0
@@ -145,6 +140,12 @@ func (l *LineLayout) Layout() {
 	}
 
 	l.prop.height = (maxAscent + maxDescent) + maxGap
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 func (l LineLayout) Prop() LayoutProperty {
 	return l.prop

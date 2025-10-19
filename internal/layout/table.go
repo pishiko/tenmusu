@@ -16,14 +16,10 @@ type TableLayout struct {
 	body *TableRowGroupLayout
 }
 
-func (l *TableLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
-	l.prop.width = l.parent.Prop().width
+func (l *TableLayout) Layout(x float64, y float64, width float64) Rect {
+	l.prop.x = x
+	l.prop.y = y
+	l.prop.width = width
 
 	for _, child := range l.node.Children {
 		if child.Type == model.Element {
@@ -55,6 +51,12 @@ func (l *TableLayout) Layout() {
 		l.body.Layout()
 	}
 	l.prop.height = l.body.prop.height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l *TableLayout) Prop() LayoutProperty {
@@ -331,8 +333,14 @@ func (l *TableRowLayout) Layout(widths []float64) {
 	for i, cell := range l.cells {
 		cell.prop.width = widths[i]
 	}
-	for _, cell := range l.cells {
-		cell.Layout()
+	prevRect := Rect{}
+	for i, cell := range l.cells {
+		cy := l.prop.y
+		if i > 0 {
+			cy = prevRect.y + prevRect.height
+		}
+		rect := cell.Layout(l.prop.x, cy, cell.prop.width)
+		prevRect = rect
 	}
 	height := 0.0
 	for _, cell := range l.cells {
@@ -391,7 +399,7 @@ type TableCellLayout struct {
 	colSpan int
 }
 
-func (l *TableCellLayout) Init() {
+func (l *TableCellLayout) Init() float64 {
 	if l.previous != nil {
 		l.prop.x = l.previous.prop.x + l.previous.prop.width
 	} else {
@@ -400,24 +408,35 @@ func (l *TableCellLayout) Init() {
 	l.prop.y = l.parent.prop.y
 
 	l.children = createLayoutFromNodes(l.node.Children, l)
-	for _, l := range l.children {
-		l.Layout()
+	ret := 0.0
+	prevRect := Rect{}
+	for i, child := range l.children {
+		cy := l.prop.y
+		if i > 0 {
+			cy = prevRect.y + prevRect.height
+		}
+		rect := child.Layout(l.prop.x, cy, l.prop.width)
+		ret += rect.height
+		prevRect = rect
 	}
+	return ret
 }
 
-func (l *TableCellLayout) Layout() {
+func (l *TableCellLayout) Layout(x float64, y float64, width float64) Rect {
 	l.prop.y = l.parent.prop.y
 	// TODO FIX colspan考慮, 均等に分配しているが正確ではない
 	for next := l.colNext; next != nil; next = next.colNext {
 		l.prop.width += next.prop.width
 	}
 	// TODO FIX　Initの重複呼び出し
-	l.Init()
-	height := 0.0
-	for _, child := range l.children {
-		height += child.Prop().height
-	}
+	height := l.Init()
 	l.prop.height = height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l TableCellLayout) Prop() LayoutProperty {
