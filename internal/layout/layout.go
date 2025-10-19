@@ -34,7 +34,7 @@ func NewDocumentLayout(node *model.Node, screenRect image.Rectangle, printLayout
 
 func (l *DocumentLayout) Layout() []Drawable {
 	parent := &BlockLayout{
-		prop: LayoutProperty{
+		prop: Rect{
 			x:      8.0,
 			y:      8.0,
 			width:  float64(l.screenRect.Dx()) - 16.0,
@@ -57,13 +57,6 @@ func (l *DocumentLayout) Layout() []Drawable {
 		l.drawables = child.PaintTree(l.drawables)
 	}
 	return l.drawables
-}
-
-type LayoutProperty struct {
-	x      float64
-	y      float64
-	width  float64
-	height float64
 }
 
 type Rect struct {
@@ -145,10 +138,10 @@ func debugPrint(layout Layout, indent int) {
 		}
 	case *LineLayout:
 		for _, child := range v.children {
-			println(strings.Repeat("  ", indent+1) + "TextLayout: \"" + child.word + "\" x=" + strconv.Itoa(int(child.Prop().x)) +
-				" y=" + strconv.Itoa(int(child.Prop().y)) +
-				" w=" + strconv.Itoa(int(child.Prop().width)) +
-				" h=" + strconv.Itoa(int(child.Prop().height)))
+			println(strings.Repeat("  ", indent+1) + "TextLayout: \"" + child.word + "\" x=" + strconv.Itoa(int(child.prop.x)) +
+				" y=" + strconv.Itoa(int(child.prop.y)) +
+				" w=" + strconv.Itoa(int(child.prop.width)) +
+				" h=" + strconv.Itoa(int(child.prop.height)))
 		}
 	case *InlineContext:
 		for _, child := range v.children {

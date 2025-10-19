@@ -8,7 +8,7 @@ import (
 )
 
 type TableLayout struct {
-	prop     LayoutProperty
+	prop     Rect
 	parent   Layout
 	previous Layout
 	node     *model.Node
@@ -19,7 +19,7 @@ type TableLayout struct {
 func (l *TableLayout) Layout(x float64, y float64, width float64) Rect {
 	l.prop.x = x
 	l.prop.y = y
-	l.prop.width = width
+	maxWidth := width
 
 	for _, child := range l.node.Children {
 		if child.Type == model.Element {
@@ -47,10 +47,11 @@ func (l *TableLayout) Layout(x float64, y float64, width float64) Rect {
 			}
 		}
 	}
-	if l.body != nil {
-		l.body.Layout()
-	}
-	l.prop.height = l.body.prop.height
+
+	rect := l.body.Layout(x, y, -1, maxWidth) //TODO autoをちゃんと定義する
+
+	l.prop.width = rect.width
+	l.prop.height = rect.height
 	return Rect{
 		x:      l.prop.x,
 		y:      l.prop.y,
@@ -59,7 +60,7 @@ func (l *TableLayout) Layout(x float64, y float64, width float64) Rect {
 	}
 }
 
-func (l *TableLayout) Prop() LayoutProperty {
+func (l *TableLayout) Prop() Rect {
 	return l.prop
 }
 
@@ -75,7 +76,7 @@ type TableRowGroupLayout struct {
 	node   *model.Node
 	parent *TableLayout
 	rows   []*TableRowLayout
-	prop   LayoutProperty
+	prop   Rect
 
 	initialized bool
 }
@@ -96,9 +97,10 @@ func (l *TableRowGroupLayout) Init() {
 	l.initialized = true
 }
 
-func (l *TableRowGroupLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-	l.prop.y = l.parent.Prop().y
+func (l *TableRowGroupLayout) Layout(x float64, y float64, width float64, maxWidth float64) Rect {
+	l.prop.x = x
+	l.prop.y = y
+	parentMaxWidth := maxWidth
 
 	if !l.initialized {
 		l.Init()
@@ -119,7 +121,11 @@ func (l *TableRowGroupLayout) Layout() {
 
 	rowWidths := []float64{}
 
-	l.prop.width = l.parent.Prop().width
+	l.prop.width = width
+	if l.prop.width < 0 {
+		// TODO autoをちゃんと定義する
+		l.prop.width = min(parentMaxWidth, maxSum)
+	}
 	if l.prop.width <= minSum {
 		// テーブル幅が最小幅以下なら最小幅に合わせる
 		rowWidths = minWidths
@@ -154,6 +160,12 @@ func (l *TableRowGroupLayout) Layout() {
 		height += row.prop.height
 	}
 	l.prop.height = height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l *TableRowGroupLayout) GetMinMaxWidth() (float64, float64) {
@@ -217,7 +229,7 @@ type TableRowLayout struct {
 	parent   *TableRowGroupLayout
 	previous *TableRowLayout
 	cells    []*TableCellLayout
-	prop     LayoutProperty
+	prop     Rect
 
 	initialized bool
 }
@@ -388,7 +400,7 @@ type TableCellLayout struct {
 	node     *model.Node
 	parent   *TableRowLayout
 	previous *TableCellLayout
-	prop     LayoutProperty
+	prop     Rect
 	children []Layout
 
 	joinedRowRoot *TableCellLayout
@@ -439,7 +451,7 @@ func (l *TableCellLayout) Layout(x float64, y float64, width float64) Rect {
 	}
 }
 
-func (l TableCellLayout) Prop() LayoutProperty {
+func (l TableCellLayout) Prop() Rect {
 	return l.prop
 }
 

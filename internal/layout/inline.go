@@ -23,14 +23,10 @@ type InlineContext struct {
 
 	inlineItems []*InlineLayout
 	textItems   []*TextLayout
-	prop        LayoutProperty
+	prop        Rect
 
 	cursorX   float64
 	drawables []TextDrawable
-}
-
-func (l InlineContext) Prop() LayoutProperty {
-	return l.prop
 }
 
 func (l *InlineContext) Paint() []Drawable {
@@ -53,20 +49,20 @@ func (l *InlineContext) Layout(x float64, y float64, width float64) Rect {
 	}
 	l.word()
 
-	prevRect := Rect{}
+	childRects := []Rect{}
 	for i, child := range l.children {
 		cy := l.prop.y
 		if i > 0 {
-			cy = prevRect.y + prevRect.height
+			cy = childRects[i-1].y + childRects[i-1].height
 		}
 		rect := child.Layout(l.prop.x, cy, l.prop.width)
-		prevRect = rect
+		childRects = append(childRects, rect)
 	}
 
 	// Height
 	height := 0.0
-	for _, child := range l.children {
-		height += child.Prop().height
+	for _, cr := range childRects {
+		height += cr.height
 	}
 	l.prop.height = height
 	return Rect{
@@ -143,7 +139,7 @@ func (l *InlineContext) newLine() {
 
 type InlineLayout struct {
 	node     *model.Node
-	prop     LayoutProperty
+	prop     Rect
 	parent   Layout
 	children []*TextLayout
 

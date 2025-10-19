@@ -11,15 +11,11 @@ type BlockLayout struct {
 	previous Layout
 	children []Layout
 
-	prop LayoutProperty
+	prop Rect
 
 	cursorX   float64
 	weight    string
 	drawables []TextDrawable
-}
-
-func (l BlockLayout) Prop() LayoutProperty {
-	return l.prop
 }
 
 func (l *BlockLayout) Paint() []Drawable {

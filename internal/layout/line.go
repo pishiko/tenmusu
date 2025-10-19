@@ -15,7 +15,7 @@ type TextLayout struct {
 	node     *model.Node
 	parent   Layout
 	previous *TextLayout
-	prop     LayoutProperty
+	prop     Rect
 
 	word   string
 	font   *text.GoTextFace
@@ -34,13 +34,8 @@ func NewTextLayout(node *model.Node, word string) *TextLayout {
 
 func (l *TextLayout) Layout(x float64) {
 	l.prop.x = x
-
-	if l.previous != nil {
-		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + l.previous.SpaceWidth()
-	}
-
 }
-func (l TextLayout) Prop() LayoutProperty {
+func (l TextLayout) Prop() Rect {
 	return l.prop
 }
 func (l *TextLayout) Paint() []Drawable {
@@ -104,7 +99,7 @@ type LineLayout struct {
 	previous Layout
 	children []*TextLayout
 
-	prop LayoutProperty
+	prop Rect
 }
 
 func (l *LineLayout) Layout(x float64, y float64, width float64) Rect {
@@ -113,8 +108,12 @@ func (l *LineLayout) Layout(x float64, y float64, width float64) Rect {
 	l.prop.x = x
 	l.prop.y = y
 
-	for _, child := range l.children {
-		child.Layout(l.prop.x)
+	for i, child := range l.children {
+		cx := l.prop.x
+		if i > 0 {
+			cx = l.children[i-1].prop.x + l.children[i-1].prop.width + l.children[i-1].SpaceWidth()
+		}
+		child.Layout(cx)
 	}
 
 	maxAscent := 0.0
@@ -147,7 +146,7 @@ func (l *LineLayout) Layout(x float64, y float64, width float64) Rect {
 		height: l.prop.height,
 	}
 }
-func (l LineLayout) Prop() LayoutProperty {
+func (l LineLayout) Prop() Rect {
 	return l.prop
 }
 func (l *LineLayout) Paint() []Drawable {
