@@ -11,16 +11,11 @@ type BlockLayout struct {
 	previous Layout
 	children []Layout
 
-	prop LayoutProperty
+	prop Rect
 
 	cursorX   float64
 	weight    string
-	size      float64
 	drawables []TextDrawable
-}
-
-func (l BlockLayout) Prop() LayoutProperty {
-	return l.prop
 }
 
 func (l *BlockLayout) Paint() []Drawable {
@@ -49,70 +44,34 @@ func (l *BlockLayout) Paint() []Drawable {
 	return ret
 }
 
-func (l *BlockLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-	l.prop.width = l.parent.Prop().width
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
+func (l *BlockLayout) Layout(x float64, y float64, width float64) Rect {
+	l.prop.x = x
+	l.prop.width = width
+	l.prop.y = y
 
-	inlineContext := (*InlineContext)(nil)
-	previous := (Layout)(nil)
-	for _, child := range l.node.Children {
-		switch getLayoutMode(child) {
-		case Block:
-			if inlineContext != nil {
-				inlineContext = nil
-			}
-			var next *BlockLayout
-			if previous != nil {
-				next = &BlockLayout{
-					node:     child,
-					parent:   l,
-					previous: previous,
-					children: []Layout{},
-				}
-			} else {
-				next = &BlockLayout{
-					node:     child,
-					parent:   l,
-					children: []Layout{},
-				}
-			}
-			l.children = append(l.children, next)
-			previous = next
-		case Inline:
-			if inlineContext == nil {
-				inlineContext = &InlineContext{
-					parent:      l,
-					previous:    previous,
-					children:    []*LineLayout{},
-					inlineItems: []*InlineLayout{},
-				}
-				l.children = append(l.children, inlineContext)
-				previous = inlineContext
-			}
-			inline := &InlineLayout{
-				parent:   l,
-				node:     child,
-				children: []*TextLayout{},
-			}
-			inlineContext.inlineItems = append(inlineContext.inlineItems, inline)
+	l.children = createLayoutFromNodes(l.node.Children, l)
+	childRects := []Rect{}
+	for i, child := range l.children {
+		cy := l.prop.y
+		if i > 0 {
+			cy = childRects[i-1].y + childRects[i-1].height
 		}
-	}
-
-	for _, child := range l.children {
-		child.Layout()
+		rect := child.Layout(l.prop.x, cy, l.prop.width)
+		childRects = append(childRects, rect)
 	}
 
 	// Height
 	height := 0.0
-	for _, child := range l.children {
-		height += child.Prop().height
+	for _, cr := range childRects {
+		height += cr.height
 	}
 	l.prop.height = height
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
 
 func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
@@ -123,6 +82,68 @@ func (l *BlockLayout) PaintTree(drawables []Drawable) []Drawable {
 	return drawables
 }
 
+func (l *BlockLayout) GetMinMaxWidth() (float64, float64) {
+	mnw := 0.0
+	mxw := 0.0
+	for _, child := range l.children {
+		mn, mx := child.GetMinMaxWidth()
+		mnw = max(mnw, mn)
+		mxw = max(mxw, mx)
+	}
+	return mnw, mxw
+}
+
 func (l *BlockLayout) layoutMode() LayoutMode {
 	return getLayoutMode(l.node)
+}
+
+func createLayoutFromNodes(nodes []*model.Node, parent Layout) []Layout {
+	layouts := []Layout{}
+
+	inlineContext := (*InlineContext)(nil)
+	previous := (Layout)(nil)
+	for _, child := range nodes {
+		switch getLayoutMode(child) {
+		case Block:
+			if inlineContext != nil {
+				inlineContext = nil
+			}
+			var next Layout
+			switch child.Value {
+			case "table":
+				next = &TableLayout{
+					node:     child,
+					parent:   parent,
+					previous: previous,
+				}
+			default:
+				next = &BlockLayout{
+					node:     child,
+					parent:   parent,
+					previous: previous,
+					children: []Layout{},
+				}
+			}
+			layouts = append(layouts, next)
+			previous = next
+		case Inline:
+			if inlineContext == nil {
+				inlineContext = &InlineContext{
+					parent:      parent,
+					previous:    previous,
+					children:    []*LineLayout{},
+					inlineItems: []*InlineLayout{},
+				}
+				layouts = append(layouts, inlineContext)
+				previous = inlineContext
+			}
+			inline := &InlineLayout{
+				parent:   parent,
+				node:     child,
+				children: []*TextLayout{},
+			}
+			inlineContext.inlineItems = append(inlineContext.inlineItems, inline)
+		}
+	}
+	return layouts
 }

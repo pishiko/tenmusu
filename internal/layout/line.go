@@ -15,8 +15,7 @@ type TextLayout struct {
 	node     *model.Node
 	parent   Layout
 	previous *TextLayout
-	children []Layout
-	prop     LayoutProperty
+	prop     Rect
 
 	word   string
 	font   *text.GoTextFace
@@ -24,39 +23,19 @@ type TextLayout struct {
 	style  string
 }
 
-func (l *TextLayout) Layout() {
-	l.prop.x = l.parent.Prop().x
-
-	l.weight, _ = l.node.Style["font-weight"]
-	l.style, _ = l.node.Style["font-style"]
-
-	fs, _ := l.node.Style["font-size"]
-	fspx, _ := strings.CutSuffix(fs, "px")
-	fspxInt, _ := strconv.Atoi(fspx)
-	size := float64(fspxInt)
-
-	source := fontSource.normal
-	if l.weight == "bold" {
-		source = fontSource.bold
+func NewTextLayout(node *model.Node, word string) *TextLayout {
+	t := &TextLayout{
+		node: node,
+		word: word,
 	}
-	l.font = &text.GoTextFace{
-		Source:    source,
-		Direction: text.DirectionLeftToRight,
-		Size:      size,
-		Language:  language.Japanese,
-	}
-	w, h := text.Measure(l.word, l.font, l.font.Metrics().HLineGap)
-	l.prop.width = float64(w)
-	l.prop.height = float64(h)
-
-	if l.previous != nil {
-		preFont := l.previous.font
-		space, _ := text.Measure(" ", preFont, preFont.Metrics().HLineGap)
-		l.prop.x = l.previous.Prop().x + l.previous.Prop().width + float64(space)
-	}
-
+	t.calcWH()
+	return t
 }
-func (l TextLayout) Prop() LayoutProperty {
+
+func (l *TextLayout) Layout(x float64) {
+	l.prop.x = x
+}
+func (l TextLayout) Prop() Rect {
 	return l.prop
 }
 func (l *TextLayout) Paint() []Drawable {
@@ -79,10 +58,40 @@ func (l *TextLayout) Paint() []Drawable {
 
 func (l *TextLayout) PaintTree(drawables []Drawable) []Drawable {
 	drawables = append(drawables, l.Paint()...)
-	for _, child := range l.children {
-		drawables = child.PaintTree(drawables)
-	}
 	return drawables
+}
+
+func (l *TextLayout) calcWH() {
+	l.weight, _ = l.node.Style["font-weight"]
+	l.style, _ = l.node.Style["font-style"]
+
+	fs, _ := l.node.Style["font-size"]
+	fspx, _ := strings.CutSuffix(fs, "px")
+	fspxInt, _ := strconv.Atoi(fspx)
+	size := float64(fspxInt)
+
+	source := fontSource.normal
+	if l.weight == "bold" {
+		source = fontSource.bold
+	}
+	l.font = &text.GoTextFace{
+		Source:    source,
+		Direction: text.DirectionLeftToRight,
+		Size:      size,
+		Language:  language.Japanese,
+	}
+	w, h := text.Measure(l.word, l.font, l.font.Metrics().HLineGap)
+	l.prop.width = float64(w)
+	l.prop.height = float64(h)
+}
+
+func (l *TextLayout) SpaceWidth() float64 {
+	rs := []rune(l.word)
+	if !isASCIIRune(rs[len(rs)-1]) {
+		return 0
+	}
+	space, _ := text.Measure(" ", l.font, l.font.Metrics().HLineGap)
+	return space
 }
 
 type LineLayout struct {
@@ -90,22 +99,21 @@ type LineLayout struct {
 	previous Layout
 	children []*TextLayout
 
-	prop LayoutProperty
+	prop Rect
 }
 
-func (l *LineLayout) Layout() {
+func (l *LineLayout) Layout(x float64, y float64, width float64) Rect {
 
-	l.prop.width = l.parent.Prop().width
-	l.prop.x = l.parent.Prop().x
+	l.prop.width = width
+	l.prop.x = x
+	l.prop.y = y
 
-	if l.previous != nil {
-		l.prop.y = l.previous.Prop().y + l.previous.Prop().height
-	} else {
-		l.prop.y = l.parent.Prop().y
-	}
-
-	for _, child := range l.children {
-		child.Layout()
+	for i, child := range l.children {
+		cx := l.prop.x
+		if i > 0 {
+			cx = l.children[i-1].prop.x + l.children[i-1].prop.width + l.children[i-1].SpaceWidth()
+		}
+		child.Layout(cx)
 	}
 
 	maxAscent := 0.0
@@ -131,8 +139,14 @@ func (l *LineLayout) Layout() {
 	}
 
 	l.prop.height = (maxAscent + maxDescent) + maxGap
+	return Rect{
+		x:      l.prop.x,
+		y:      l.prop.y,
+		width:  l.prop.width,
+		height: l.prop.height,
+	}
 }
-func (l LineLayout) Prop() LayoutProperty {
+func (l LineLayout) Prop() Rect {
 	return l.prop
 }
 func (l *LineLayout) Paint() []Drawable {
@@ -145,4 +159,9 @@ func (l *LineLayout) PaintTree(drawables []Drawable) []Drawable {
 		drawables = child.PaintTree(drawables)
 	}
 	return drawables
+}
+
+func (l *LineLayout) GetMinMaxWidth() (float64, float64) {
+	panic("not implemented")
+	return -1, -1
 }

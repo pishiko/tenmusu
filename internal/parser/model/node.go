@@ -15,3 +15,8 @@ type Node struct {
 	Attrs    map[string]string
 	Style    map[string]string
 }
+
+type MetaInfo struct {
+	CssLinks []string
+	Charset  string
+}

@@ -1,17 +1,28 @@
 package main
 
 import (
+	"bytes"
+	"flag"
+	"fmt"
+	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/pishiko/tenmusu/internal/http"
 	"github.com/pishiko/tenmusu/internal/parser/css"
 	"github.com/pishiko/tenmusu/internal/parser/html"
 	"github.com/pishiko/tenmusu/internal/parser/model"
 	"github.com/pishiko/tenmusu/internal/window"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 type Browser struct {
+	config struct {
+		printNode   bool
+		printLayout bool
+	}
 }
 
 func NewBrowser() *Browser {
@@ -32,10 +43,20 @@ func (b *Browser) Load(url string) {
 		println(key + ": " + value)
 	}
 
-	node := html.Parse(response.Body)
+	node, meta := html.Parse(response.Body)
+	if meta.Charset != "" {
+		if strings.ToLower(meta.Charset) == "shift_jis" {
+			reader := transform.NewReader(bytes.NewReader([]byte(response.Body)), japanese.ShiftJIS.NewDecoder())
 
-	// css
-	cssLinks := afterParse(node)
+			body, err := io.ReadAll(reader)
+			if err != nil {
+				println("Error decoding Shift_JIS:", err)
+				return
+			}
+			node, meta = html.Parse(string(body))
+		}
+	}
+
 	// browser.css
 	cssContent, err := os.ReadFile("browser.css")
 	if err != nil {
@@ -44,7 +65,7 @@ func (b *Browser) Load(url string) {
 	}
 	rules := css.CSSParse(string(cssContent))
 	// cssLinks
-	for _, link := range cssLinks {
+	for _, link := range meta.CssLinks {
 		cssUrl := docUrl.Resolve(link)
 		println("Fetching CSS from:", cssUrl.Scheme+"://"+cssUrl.Host+cssUrl.Path)
 		println("link:", link)
@@ -61,18 +82,31 @@ func (b *Browser) Load(url string) {
 	})
 	css.ApplyStyle(node, rules)
 
-	// printDebug(node, 0)
-	window.Open(node)
+	if b.config.printNode {
+		printDebug(node, 0)
+	}
+	window.Open(node, b.config.printLayout)
 }
 
 func main() {
-	browser := NewBrowser()
+	nodePrint := flag.Bool("node", false, "Print the parsed HTML node structure")
+	layoutPrint := flag.Bool("layout", false, "Print the layout structure")
+	flag.Parse()
+
+	flag.Usage = func() {
+		fmt.Println("Usage: tenmusu <url> [options] [args...]")
+		flag.PrintDefaults()
+	}
 	// 第一引数をURLとして受け取る
-	if len(os.Args) < 2 {
-		println("Usage: tenmusu <url>")
+	args := flag.Args()
+	if len(args) < 1 {
+		flag.Usage()
 		return
 	}
-	url := os.Args[1]
+	browser := NewBrowser()
+	browser.config.printNode = *nodePrint
+	browser.config.printLayout = *layoutPrint
+	url := args[0]
 	browser.Load(url)
 }
 
@@ -93,29 +127,4 @@ func printDebug(node *model.Node, indent int) {
 		}
 		println("</" + node.Value + ">")
 	}
-}
-
-type AfterParser struct {
-	cssLinks []string
-}
-
-func (p *AfterParser) recursive(node *model.Node) {
-	if node.Type == model.Element && node.Value == "link" {
-		if rel, ok := node.Attrs["rel"]; ok && rel == "stylesheet" {
-			if href, ok := node.Attrs["href"]; ok {
-				p.cssLinks = append(p.cssLinks, href)
-			}
-		}
-	}
-	for _, child := range node.Children {
-		p.recursive(child)
-	}
-}
-
-func afterParse(node *model.Node) []string {
-	p := &AfterParser{
-		cssLinks: []string{},
-	}
-	p.recursive(node)
-	return p.cssLinks
 }
